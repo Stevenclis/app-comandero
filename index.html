@@ -39,7 +39,7 @@
       --border-color: #dee2e6;
       --text-main: #212529;
       --text-muted: #6c757d;
-      --gold-main: #b48500; /* Dorado más oscuro para resaltar en blanco */
+      --gold-main: #b48500;
       --gold-hover: #8a6600;
       --shadow-color: rgba(0,0,0,0.1);
     }
@@ -59,7 +59,6 @@
     .lista-comanda { max-height: 35vh; overflow-y: auto; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 12px; padding: 10px; color: var(--text-main);}
     .item-fila { border-bottom: 1px solid var(--border-color); padding: 8px 0; }
     
-    /* CORRECCIÓN: Tarjetas de Mesas sin desborde */
     .mesa-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; transition: transform 0.1s; box-shadow: 0 4px 10px var(--shadow-color); cursor: pointer; color: var(--text-main); display: flex; flex-direction: column; overflow: hidden; }
     .mesa-card:active { transform: scale(0.95); }
     .mesa-header { font-size: 1.1rem; background: var(--bg-input); border-bottom: 1px solid var(--border-color); }
@@ -91,6 +90,16 @@
     .offcanvas-header { background: var(--bg-body) !important; border-bottom: 1px solid var(--gold-main); }
     .menu-item { padding: 15px; border-bottom: 1px solid var(--border-color); font-size: 18px; font-weight: bold; color: var(--text-main); cursor: pointer; display: block; text-decoration: none; }
     .menu-item:active { background: var(--bg-input); }
+    
+    /* INTERRUPTOR TIPO iPHONE (TOGGLE SWITCH) */
+    .theme-switch-wrapper { display: flex; justify-content: space-between; align-items: center; }
+    .theme-switch { position: relative; display: inline-block; width: 66px; height: 34px; margin: 0; }
+    .theme-switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #87ceeb; transition: .4s; border-radius: 34px; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; padding: 0 6px; font-size: 16px;}
+    .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 3px; bottom: 3px; background-color: #ffffff; transition: .4s; border-radius: 50%; z-index: 2; box-shadow: 0 2px 5px rgba(0,0,0,0.3);}
+    input:checked + .slider { background-color: #1e293b; }
+    input:checked + .slider:before { transform: translateX(32px); background-color: var(--gold-main); }
+    .icon-sun, .icon-moon { z-index: 1; user-select: none; }
     
     /* Clases utilitarias dinámicas */
     .text-primary-theme { color: var(--gold-main) !important; }
@@ -142,7 +151,19 @@
       <a class="menu-item" style="color: #0ea5e9 !important;" id="btn-menu-caja" onclick="cambiarVista('caja', 'Control de Caja')" data-bs-dismiss="offcanvas" style="display:none;">💵 Control de Caja</a>
       <a class="menu-item" onclick="cargarComandasCerradas()" data-bs-dismiss="offcanvas">✅ Historial Pagadas</a>
       <a class="menu-item" id="btn-menu-cierre" onclick="cambiarVista('cierre', 'Cierre de Caja')" data-bs-dismiss="offcanvas" style="display:none;">💰 Cierre del Día</a>
-      <a class="menu-item bg-input-theme mt-2" onclick="toggleTema()">🌓 Cambiar a Día/Noche</a>
+      
+      <!-- INTERRUPTOR TEMA iOS -->
+      <div class="menu-item bg-input-theme mt-2 theme-switch-wrapper">
+        <span>Modo Visual</span>
+        <label class="theme-switch">
+          <input type="checkbox" id="checkbox-tema" onchange="toggleTema()" checked>
+          <span class="slider">
+            <span class="icon-sun">☀️</span>
+            <span class="icon-moon">🌙</span>
+          </span>
+        </label>
+      </div>
+
       <div class="p-3 mt-auto border-top" style="border-color: var(--border-color) !important;">
         <button class="btn btn-outline-danger w-100 fw-bold py-2" onclick="cerrarSesion()" data-bs-dismiss="offcanvas">Cerrar Sesión</button>
       </div>
@@ -353,22 +374,33 @@
   // Lógica del TEMA Día / Noche
   function toggleTema() {
     const htmlElement = document.documentElement;
-    if (htmlElement.getAttribute('data-theme') === 'light') {
+    const checkbox = document.getElementById('checkbox-tema');
+    
+    if (checkbox.checked) {
+      // Modo Noche (Checked)
       htmlElement.setAttribute('data-theme', 'dark');
       localStorage.setItem('temaAltamira', 'dark');
       document.getElementById('meta-theme-color').setAttribute('content', '#0b0f19');
     } else {
+      // Modo Día (Unchecked)
       htmlElement.setAttribute('data-theme', 'light');
       localStorage.setItem('temaAltamira', 'light');
       document.getElementById('meta-theme-color').setAttribute('content', '#f0f2f5');
     }
   }
 
-  // Cargar tema guardado al iniciar
-  if(localStorage.getItem('temaAltamira') === 'light') {
-    document.documentElement.setAttribute('data-theme', 'light');
-    document.getElementById('meta-theme-color').setAttribute('content', '#f0f2f5');
-  }
+  // Cargar tema guardado al iniciar la app y ajustar el switch
+  window.addEventListener('DOMContentLoaded', () => {
+    const savedTheme = localStorage.getItem('temaAltamira');
+    const checkbox = document.getElementById('checkbox-tema');
+    if(savedTheme === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+      document.getElementById('meta-theme-color').setAttribute('content', '#f0f2f5');
+      if(checkbox) checkbox.checked = false; // Mueve la bolita al sol
+    } else {
+      if(checkbox) checkbox.checked = true; // Mueve la bolita a la luna
+    }
+  });
 
   async function llamarBackend(action, data = {}) {
     data.action = action;
@@ -533,7 +565,6 @@
          cacheDetalles[c.id].forEach(item => totalMesa += item.subtotal);
       }
 
-      /* CORRECCIÓN: Se quitó el h-100 del mesa-body y se puso p-3 para evitar desbordes */
       html += `<div class="col-6 mb-3">
                  <div class="mesa-card h-100" onclick="abrirMesa('${c.id}', '${c.referencia}')">
                    <div class="mesa-header ${bgHeader} text-center py-2 fw-bold">
