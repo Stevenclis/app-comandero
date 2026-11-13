@@ -91,14 +91,13 @@
     .menu-item { padding: 15px; border-bottom: 1px solid var(--border-color); font-size: 18px; font-weight: bold; color: var(--text-main); cursor: pointer; display: block; text-decoration: none; }
     .menu-item:active { background: var(--bg-input); }
     
-    /* INTERRUPTOR TIPO iPHONE (TOGGLE SWITCH) */
-    .theme-switch-wrapper { display: flex; justify-content: space-between; align-items: center; }
-    .theme-switch { position: relative; display: inline-block; width: 66px; height: 34px; margin: 0; }
+    /* INTERRUPTOR TEMA iOS EN EL HEADER (Ajustado para navbar) */
+    .theme-switch { position: relative; display: inline-block; width: 56px; height: 30px; margin: 0; flex-shrink: 0;}
     .theme-switch input { opacity: 0; width: 0; height: 0; }
-    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #87ceeb; transition: .4s; border-radius: 34px; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; padding: 0 6px; font-size: 16px;}
-    .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 3px; bottom: 3px; background-color: #ffffff; transition: .4s; border-radius: 50%; z-index: 2; box-shadow: 0 2px 5px rgba(0,0,0,0.3);}
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #87ceeb; transition: .4s; border-radius: 30px; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; padding: 0 4px; font-size: 14px;}
+    .slider:before { position: absolute; content: ""; height: 24px; width: 24px; left: 2px; bottom: 2px; background-color: #ffffff; transition: .4s; border-radius: 50%; z-index: 2; box-shadow: 0 2px 5px rgba(0,0,0,0.3);}
     input:checked + .slider { background-color: #1e293b; }
-    input:checked + .slider:before { transform: translateX(32px); background-color: var(--gold-main); }
+    input:checked + .slider:before { transform: translateX(26px); background-color: var(--gold-main); }
     .icon-sun, .icon-moon { z-index: 1; user-select: none; }
     
     /* Clases utilitarias dinámicas */
@@ -135,9 +134,20 @@
   <div class="navbar-top" id="navbar-top">
     <div class="d-flex align-items-center">
       <button class="btn-hamburguesa" data-bs-toggle="offcanvas" data-bs-target="#menuLateral">☰</button>
-      <h4 class="m-0 fw-bold text-primary-theme" id="nav-titulo">Mesas Activas</h4>
+      <h4 class="m-0 fw-bold text-primary-theme text-truncate" id="nav-titulo" style="max-width: 160px;">Mesas Activas</h4>
     </div>
-    <button class="btn btn-dark btn-sm fw-bold shadow-sm" id="btn-nav-inicio" onclick="cargarComandasAbiertas()" style="display:none;">🏠 Inicio</button>
+    
+    <!-- CONTENEDOR DERECHO: INTERRUPTOR Y BOTÓN INICIO -->
+    <div class="d-flex align-items-center gap-2">
+      <label class="theme-switch m-0">
+        <input type="checkbox" id="checkbox-tema" onchange="toggleTema()" checked>
+        <span class="slider">
+          <span class="icon-sun">☀️</span>
+          <span class="icon-moon">🌙</span>
+        </span>
+      </label>
+      <button class="btn btn-dark btn-sm fw-bold shadow-sm" id="btn-nav-inicio" onclick="cargarComandasAbiertas()" style="display:none;">🏠 Inicio</button>
+    </div>
   </div>
 
   <div class="offcanvas offcanvas-start" tabindex="-1" id="menuLateral">
@@ -151,18 +161,6 @@
       <a class="menu-item" style="color: #0ea5e9 !important;" id="btn-menu-caja" onclick="cambiarVista('caja', 'Control de Caja')" data-bs-dismiss="offcanvas" style="display:none;">💵 Control de Caja</a>
       <a class="menu-item" onclick="cargarComandasCerradas()" data-bs-dismiss="offcanvas">✅ Historial Pagadas</a>
       <a class="menu-item" id="btn-menu-cierre" onclick="cambiarVista('cierre', 'Cierre de Caja')" data-bs-dismiss="offcanvas" style="display:none;">💰 Cierre del Día</a>
-      
-      <!-- INTERRUPTOR TEMA iOS -->
-      <div class="menu-item bg-input-theme mt-2 theme-switch-wrapper">
-        <span>Modo Visual</span>
-        <label class="theme-switch">
-          <input type="checkbox" id="checkbox-tema" onchange="toggleTema()" checked>
-          <span class="slider">
-            <span class="icon-sun">☀️</span>
-            <span class="icon-moon">🌙</span>
-          </span>
-        </label>
-      </div>
 
       <div class="p-3 mt-auto border-top" style="border-color: var(--border-color) !important;">
         <button class="btn btn-outline-danger w-100 fw-bold py-2" onclick="cerrarSesion()" data-bs-dismiss="offcanvas">Cerrar Sesión</button>
