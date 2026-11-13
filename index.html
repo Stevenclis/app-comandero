@@ -3,64 +3,98 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
-  <title>Comandero POS</title>
+  <title>Comandero Altamira</title>
   
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0d6efd">
-  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1046/1046784.png">
+  <meta name="theme-color" content="#0b0f19">
+  <!-- Aquí conectamos tu logo para cuando se instale la app -->
+  <link rel="apple-touch-icon" href="logo.png">
+  <link rel="icon" href="logo.png">
+
+  <!-- Fuentes elegantes de Google -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
   <style>
-    body { background-color: #f0f2f5; padding-top: 60px; padding-bottom: 80px; user-select: none; }
+    /* NUEVO DISEÑO: OSCURO Y DORADO (Lujo) */
+    body { background-color: #0b0f19; font-family: 'Inter', sans-serif; color: #f8fafc; padding-top: 60px; padding-bottom: 80px; user-select: none; }
     .vista { display: none; padding: 15px; }
     .vista.activa { display: block; }
     button { touch-action: manipulation; } 
     
-    .navbar-top { position: fixed; top: 0; width: 100%; z-index: 1030; background: #0d6efd; color: white; height: 60px; display: none; justify-content: space-between; align-items: center; padding: 0 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-    .btn-hamburguesa { font-size: 24px; color: white; background: none; border: none; padding: 0; margin-right: 15px;}
+    .navbar-top { position: fixed; top: 0; width: 100%; z-index: 1030; background: #111827; border-bottom: 1px solid #d4af37; color: #d4af37; height: 60px; display: none; justify-content: space-between; align-items: center; padding: 0 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+    .btn-hamburguesa { font-size: 24px; color: #d4af37; background: none; border: none; padding: 0; margin-right: 15px;}
     
-    .btn-flotante-add { position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; border-radius: 50%; background: #198754; color: white; font-size: 30px; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); z-index: 99; cursor: pointer;}
+    .btn-flotante-add { position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(145deg, #d4af37, #b58500); color: #0b0f19; font-size: 30px; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4); z-index: 99; cursor: pointer;}
     
-    .btn-producto { height: 75px; font-weight: bold; font-size: 14px; line-height: 1.1; padding: 5px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-    .panel-flotante { position: fixed; bottom: 0; left: 0; width: 100%; background: white; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); padding: 10px 15px; z-index: 100; display: flex; justify-content: space-between; align-items: center; }
-    .lista-comanda { max-height: 35vh; overflow-y: auto; background: white; border-radius: 8px; padding: 10px;}
-    .item-fila { border-bottom: 1px solid #eee; padding: 8px 0; }
+    .btn-producto { height: 75px; font-weight: bold; font-size: 14px; line-height: 1.1; padding: 5px; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #1f2937; border: 1px solid #374151; color: white; border-radius: 12px;}
+    .panel-flotante { position: fixed; bottom: 0; left: 0; width: 100%; background: #111827; border-top: 1px solid #d4af37; box-shadow: 0 -4px 15px rgba(0,0,0,0.5); padding: 10px 15px; z-index: 100; display: flex; justify-content: space-between; align-items: center; }
+    .lista-comanda { max-height: 35vh; overflow-y: auto; background: #1f2937; border: 1px solid #374151; border-radius: 12px; padding: 10px; color: white;}
+    .item-fila { border-bottom: 1px solid #374151; padding: 8px 0; }
     
-    /* NUEVO DISEÑO DE TARJETAS DE MESA */
-    .mesa-card { border-radius: 16px; transition: transform 0.1s; box-shadow: 0 4px 8px rgba(0,0,0,0.08); cursor: pointer; }
+    .mesa-card { background: #111827; border: 1px solid #374151; border-radius: 16px; transition: transform 0.1s; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; color: white; }
     .mesa-card:active { transform: scale(0.95); }
-    .mesa-header { border-radius: 16px 16px 0 0; font-size: 1.1rem; }
-    .mesa-body { border-radius: 0 0 16px 16px; border: 1px solid #dee2e6; border-top: none; background: white; }
+    .mesa-header { border-radius: 15px 15px 0 0; font-size: 1.1rem; background: #1f2937; border-bottom: 1px solid #374151; }
+    .mesa-header.bg-primary { background: linear-gradient(90deg, #1e3a8a, #1e40af); color: white !important; border-bottom: none;}
+    .mesa-header.bg-warning { background: linear-gradient(90deg, #b45309, #d97706); color: white !important; border-bottom: none;}
+    .mesa-body { border-radius: 0 0 16px 16px; background: transparent; border: none; }
 
-    .alerta-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; display:none; justify-content:center; align-items:center; }
-    .alerta-caja { background: white; padding: 25px; border-radius: 16px; width: 90%; max-width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); animation: popIn 0.2s ease; }
+    .alerta-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; display:none; justify-content:center; align-items:center; }
+    .alerta-caja { background: #111827; color: white; border: 1px solid #374151; padding: 25px; border-radius: 16px; width: 90%; max-width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.8); animation: popIn 0.2s ease; }
     @keyframes popIn { 0% { transform: scale(0.8); opacity: 0;} 100% { transform: scale(1); opacity: 1;} }
     .alerta-icono { font-size: 40px; margin-bottom: 10px; }
-    #pantalla-carga { position: fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:9000; display:flex; flex-direction:column; justify-content:center; align-items:center; }
+    #pantalla-carga { position: fixed; top:0; left:0; width:100%; height:100%; background:#0b0f19; z-index:9000; display:flex; flex-direction:column; justify-content:center; align-items:center; color: white;}
     
-    /* Botones cuadrícula nueva mesa */
-    .btn-mesa { border: 2px solid #0d6efd; border-radius: 8px; padding: 10px; font-weight: bold; cursor: pointer; transition: 0.2s; text-align: center; }
-    .btn-mesa.seleccionada { background-color: #0d6efd; color: white; transform: scale(1.05); }
+    .btn-mesa { border: 1px solid #374151; background: #1f2937; color: white; border-radius: 12px; padding: 10px; font-weight: bold; cursor: pointer; transition: 0.2s; text-align: center; }
+    .btn-mesa.seleccionada { background: linear-gradient(145deg, #d4af37, #b58500); color: #0b0f19; border: none; transform: scale(1.05); box-shadow: 0 4px 10px rgba(212, 175, 55, 0.3); }
     
-    .ticket { background: white; padding: 20px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.1); width: 100%; max-width: 400px; margin: 0 auto; font-family: monospace; position: relative;}
-    .sello-pagada { position: absolute; top: 30%; left: 10%; font-size: 50px; color: rgba(220, 53, 69, 0.2); transform: rotate(-30deg); font-weight: bold; border: 5px solid rgba(220, 53, 69, 0.2); padding: 10px; z-index: 0; pointer-events: none;}
+    .ticket { background: #f8fafc; color: #0b0f19; padding: 20px; border-radius: 5px; box-shadow: 0 0 15px rgba(212, 175, 55, 0.2); width: 100%; max-width: 400px; margin: 0 auto; font-family: monospace; position: relative;}
+    .sello-pagada { position: absolute; top: 30%; left: 10%; font-size: 50px; color: rgba(220, 53, 69, 0.3); transform: rotate(-30deg); font-weight: bold; border: 5px solid rgba(220, 53, 69, 0.3); padding: 10px; z-index: 0; pointer-events: none;}
     .ticket-content { position: relative; z-index: 1;}
     .header-vista { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-    .pin-display { font-size: 40px; letter-spacing: 15px; font-weight: bold; text-align: center; height: 60px; line-height: 60px; border-bottom: 3px solid #0d6efd; margin-bottom: 20px; color: #0d6efd;}
-    .teclado-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 300px; margin: 0 auto; }
-    .btn-tecla { height: 70px; font-size: 28px; font-weight: bold; border-radius: 12px; background: white; border: 1px solid #ddd; box-shadow: 0 2px 5px rgba(0,0,0,0.05); color: #333; }
-    .btn-tecla:active { background: #f0f0f0; transform: scale(0.95); }
-    .menu-item { padding: 15px; border-bottom: 1px solid #eee; font-size: 18px; font-weight: bold; color: #333; cursor: pointer; display: block; text-decoration: none; }
-    .menu-item:active { background: #f8f9fa; }
+    
+    .pin-display { font-size: 40px; letter-spacing: 15px; font-weight: bold; text-align: center; height: 60px; line-height: 60px; border-bottom: 2px solid #d4af37; margin-bottom: 20px; color: #d4af37;}
+    .teclado-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; max-width: 300px; margin: 0 auto; }
+    .btn-tecla { height: 70px; font-size: 28px; font-weight: bold; border-radius: 50%; background: #111827; border: 1px solid #d4af37; color: #d4af37; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; justify-content: center; align-items: center;}
+    .btn-tecla:active { background: #d4af37; color: #0b0f19; transform: scale(0.95); }
+    
+    .offcanvas { background-color: #111827; color: white; border-right: 1px solid #374151;}
+    .offcanvas-header { background: #0b0f19 !important; border-bottom: 1px solid #d4af37; }
+    .menu-item { padding: 15px; border-bottom: 1px solid #1f2937; font-size: 18px; font-weight: bold; color: white; cursor: pointer; display: block; text-decoration: none; }
+    .menu-item:active { background: #1f2937; }
+    .menu-item.text-warning { color: #d4af37 !important; }
+    .menu-item.text-primary { color: #0ea5e9 !important; }
+    
+    .text-primary { color: #d4af37 !important; } 
+    .text-success { color: #10b981 !important; }
+    .text-muted { color: #9ca3af !important; }
+    .text-dark { color: #f8fafc !important; } 
+    
+    .card { background: #111827; border: 1px solid #374151; color: white; }
+    .form-control, .form-select { background: #1f2937; border: 1px solid #374151; color: white; }
+    .form-control:focus, .form-select:focus { background: #1f2937; color: white; border-color: #d4af37; box-shadow: 0 0 0 0.25rem rgba(212, 175, 55, 0.25); }
+    
+    .btn-primary { background: #d4af37; border: none; color: #0b0f19; font-weight: bold; }
+    .btn-primary:hover, .btn-primary:active { background: #b58500; color: #0b0f19; }
+    .btn-outline-primary { border-color: #374151; color: white; }
+    .btn-outline-primary:hover, .btn-outline-primary:active { background: #1f2937; color: white; }
+    
+    .btn-success { background: #10b981; border: none; color: #0b0f19; font-weight: bold; }
+    .btn-secondary, .btn-outline-secondary { border-color: #374151; color: white; }
+    .btn-dark { background: #1f2937; border: 1px solid #374151; color: white;}
+
+    .logo-login { max-width: 150px; margin-bottom: 15px; border-radius: 50%; border: 2px solid #d4af37; box-shadow: 0 0 20px rgba(212,175,55,0.2); }
   </style>
 </head>
 <body>
 
   <div id="pantalla-carga">
     <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status"></div>
-    <h4 class="mt-3 text-muted">Cargando Sistema...</h4>
+    <h4 class="mt-3" style="color: #d4af37;">Cargando Altamira...</h4>
   </div>
 
   <div class="navbar-top" id="navbar-top">
@@ -68,21 +102,21 @@
       <button class="btn-hamburguesa" data-bs-toggle="offcanvas" data-bs-target="#menuLateral">☰</button>
       <h4 class="m-0 fw-bold" id="nav-titulo">Mesas Activas</h4>
     </div>
-    <button class="btn btn-light btn-sm fw-bold shadow-sm" id="btn-nav-inicio" onclick="cargarComandasAbiertas()" style="display:none;">🏠 Inicio</button>
+    <button class="btn btn-dark btn-sm fw-bold shadow-sm" id="btn-nav-inicio" onclick="cargarComandasAbiertas()" style="display:none;">🏠 Inicio</button>
   </div>
 
   <div class="offcanvas offcanvas-start" tabindex="-1" id="menuLateral">
-    <div class="offcanvas-header bg-primary text-white">
-      <h5 class="offcanvas-title fw-bold">👤 <span id="label-usuario-activo">Usuario</span></h5>
+    <div class="offcanvas-header text-white">
+      <h5 class="offcanvas-title fw-bold" style="color: #d4af37;">👤 <span id="label-usuario-activo">Usuario</span></h5>
       <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
     </div>
     <div class="offcanvas-body p-0">
       <a class="menu-item" onclick="cargarComandasAbiertas()" data-bs-dismiss="offcanvas">🏠 Dashboard Mesas</a>
       <a class="menu-item text-warning" id="btn-menu-venta-rapida" onclick="iniciarVentaRapida()" data-bs-dismiss="offcanvas" style="display:none;">⚡ Venta Rápida</a>
-      <a class="menu-item text-primary" id="btn-menu-caja" onclick="cambiarVista('caja', 'Control de Caja')" data-bs-dismiss="offcanvas" style="display:none;">💵 Control de Caja (Base/Gastos)</a>
+      <a class="menu-item text-primary" id="btn-menu-caja" onclick="cambiarVista('caja', 'Control de Caja')" data-bs-dismiss="offcanvas" style="display:none;">💵 Control de Caja</a>
       <a class="menu-item" onclick="cargarComandasCerradas()" data-bs-dismiss="offcanvas">✅ Historial Pagadas</a>
       <a class="menu-item" id="btn-menu-cierre" onclick="cambiarVista('cierre', 'Cierre de Caja')" data-bs-dismiss="offcanvas" style="display:none;">💰 Cierre del Día</a>
-      <div class="p-3 mt-auto border-top">
+      <div class="p-3 mt-auto border-top" style="border-color: #374151 !important;">
         <button class="btn btn-outline-danger w-100 fw-bold py-2" onclick="cerrarSesion()" data-bs-dismiss="offcanvas">Cerrar Sesión</button>
       </div>
     </div>
@@ -93,13 +127,13 @@
       <div id="alerta-icono" class="alerta-icono">⚠️</div>
       <h4 id="alerta-titulo" class="fw-bold mb-2">Atención</h4>
       <p id="alerta-mensaje" class="text-muted mb-4">Mensaje</p>
-      <button class="btn btn-dark btn-lg w-100 fw-bold" onclick="cerrarAlerta()">Entendido</button>
+      <button class="btn btn-primary btn-lg w-100 fw-bold" onclick="cerrarAlerta()">Entendido</button>
     </div>
   </div>
 
   <div id="modal-vacia" class="alerta-overlay">
     <div class="alerta-caja">
-      <div class="alerta-icono">⚠️</div>
+      <div class="alerta-icono text-warning">⚠️</div>
       <h4 class="fw-bold mb-2 text-warning">Mesa Vacía</h4>
       <p class="text-muted mb-4">No puedes dejar una mesa abierta sin productos.</p>
       <div class="d-flex flex-column gap-2">
@@ -115,7 +149,7 @@
       <p id="mc-precio" class="text-muted mb-3">$0</p>
       <div class="d-flex justify-content-center align-items-center mb-4">
         <button class="btn btn-outline-danger btn-lg px-4" style="font-size: 24px;" onclick="ajustarCantTemporal(-1)">-</button>
-        <h2 id="mc-cant" class="mx-4 mb-0 fw-bold" style="font-size: 40px;">1</h2>
+        <h2 id="mc-cant" class="mx-4 mb-0 fw-bold" style="font-size: 40px; color: white;">1</h2>
         <button class="btn btn-outline-success btn-lg px-4" style="font-size: 24px;" onclick="ajustarCantTemporal(1)">+</button>
       </div>
       <div class="d-flex gap-2">
@@ -126,7 +160,7 @@
   </div>
 
   <div id="modal-gasto-exceso" class="alerta-overlay">
-    <div class="alerta-caja border-danger">
+    <div class="alerta-caja" style="border-color: #ef4444;">
       <div class="alerta-icono text-danger">⚠️</div>
       <h4 class="fw-bold mb-2 text-danger">Fondo Insuficiente</h4>
       <p class="text-muted mb-4" id="gasto-exceso-mensaje">El gasto es mayor al efectivo en caja.</p>
@@ -139,8 +173,10 @@
 
   <datalist id="lista-mesas"></datalist>
 
-  <div id="vista-login" class="vista activa container pt-4">
-    <h1 class="text-center mb-1 text-primary fw-bold">📱 Comandero</h1>
+  <div id="vista-login" class="vista activa container pt-4 d-flex flex-column align-items-center">
+    <!-- El logo de Altamira para la pantalla de inicio -->
+    <img src="logo.png" class="logo-login" alt="Altamira">
+    <h1 class="text-center mb-1 fw-bold" style="color: #d4af37;">Comandero</h1>
     <p class="text-center text-muted mb-4">Ingresa tu PIN</p>
     <div class="pin-display" id="display-pin"></div>
     <div class="teclado-grid">
@@ -153,9 +189,9 @@
       <button class="btn-tecla" onclick="teclearPin('7')">7</button>
       <button class="btn-tecla" onclick="teclearPin('8')">8</button>
       <button class="btn-tecla" onclick="teclearPin('9')">9</button>
-      <button class="btn-tecla text-danger" onclick="borrarPin()">⌫</button>
+      <button class="btn-tecla text-danger border-danger" onclick="borrarPin()">⌫</button>
       <button class="btn-tecla" onclick="teclearPin('0')">0</button>
-      <button class="btn-tecla text-success" onclick="validarLogin()">OK</button>
+      <button class="btn-tecla text-success border-success" onclick="validarLogin()">OK</button>
     </div>
   </div>
 
@@ -165,22 +201,22 @@
   </div>
 
   <div id="vista-nueva" class="vista container">
-    <div class="alert alert-info py-2 mb-3 fw-bold">Atiende: <span id="label-encargado-nueva"></span></div>
+    <div class="alert mb-3 fw-bold" style="background: #1f2937; color: #d4af37; border: 1px solid #374151;">Atiende: <span id="label-encargado-nueva"></span></div>
     <label class="text-muted fw-bold mb-2">Selecciona la(s) mesa(s):</label>
     <div class="row g-2 mb-4" id="grid-mesas"></div>
     <button class="btn btn-success btn-lg w-100 py-3 shadow-sm" onclick="crearComanda()">Abrir y Pedir</button>
   </div>
 
   <div id="vista-caja" class="vista container">
-    <div class="card shadow-sm border-0 mb-4">
+    <div class="card shadow-sm mb-4">
       <div class="card-body">
         <h5 class="fw-bold text-primary">Ingresar Base Inicial</h5>
-        <select id="sel-caja-base" class="form-select mb-2 border-primary"></select>
+        <select id="sel-caja-base" class="form-select mb-2" style="border-color: #d4af37;"></select>
         <input type="text" id="in-base" class="form-control form-control-lg mb-2" placeholder="$ Monto de Base" onkeyup="formatearMoneda(this)">
         <button class="btn btn-primary w-100 fw-bold" onclick="guardarMovimientoCaja('Base')">Guardar Base</button>
       </div>
     </div>
-    <div class="card shadow-sm border-0">
+    <div class="card shadow-sm">
       <div class="card-body">
         <h5 class="fw-bold text-danger">Registrar Salida / Gasto</h5>
         <select id="sel-caja-gasto" class="form-select mb-2 border-danger"></select>
@@ -237,18 +273,18 @@
         <h4 class="text-end fw-bold">TOTAL: $<span id="tk-total">0</span></h4><p id="tk-pagos" class="text-end small text-muted"></p>
       </div>
     </div>
-    <button class="btn btn-secondary btn-lg w-100 mt-4 py-3 shadow-sm" onclick="cargarComandasCerradas()">Volver al Historial</button>
+    <button class="btn btn-dark btn-lg w-100 mt-4 py-3 shadow-sm" onclick="cargarComandasCerradas()">Volver al Historial</button>
   </div>
 
   <div id="vista-pago" class="vista container">
-    <h2 class="text-center mb-4">Cobrar: $<span id="pago-total">0</span></h2>
+    <h2 class="text-center mb-4" style="color: white;">Cobrar: $<span id="pago-total" class="text-success">0</span></h2>
     <label class="text-muted fw-bold">¿A qué caja entra el dinero?</label>
-    <select id="sel-caja" class="form-select form-select-lg mb-3 border-primary"></select>
+    <select id="sel-caja" class="form-select form-select-lg mb-3" style="border-color: #d4af37;"></select>
     <label class="text-muted fw-bold">Método de Pago:</label>
     <select id="sel-metodo" class="form-select form-select-lg mb-3" onchange="ajustarCamposPago()">
       <option value="efectivo">💵 Todo en Efectivo</option><option value="transferencia">📱 Todo en Transferencia</option><option value="mixto">🔄 Mixto (Efectivo + Transf)</option>
     </select>
-    <div id="campos-mixto" style="display:none;" class="bg-white p-3 rounded shadow-sm mb-3 border">
+    <div id="campos-mixto" style="display:none;" class="p-3 rounded shadow-sm mb-3" style="background: #1f2937; border: 1px solid #374151;">
       <label class="text-muted fw-bold">Efectivo:</label>
       <input type="text" id="in-efectivo" class="form-control form-control-lg mb-2" value="0" onkeyup="formatearMoneda(this)">
       <label class="text-muted fw-bold">Transferencia:</label>
@@ -261,32 +297,31 @@
   <div id="vista-cierre" class="vista container">
     <input type="date" id="cierre-fecha" class="form-control form-control-lg mb-3">
     <select id="cierre-caja" class="form-select form-select-lg mb-3"></select>
-    <button class="btn btn-dark btn-lg w-100 mb-3 py-3 shadow-sm" onclick="calcularCierre()">Calcular Cuadre</button>
+    <button class="btn btn-primary btn-lg w-100 mb-3 py-3 shadow-sm" onclick="calcularCierre()">Calcular Cuadre</button>
     
-    <div id="resultado-cierre" class="card p-3 shadow-sm border-0 bg-white" style="display:none;">
+    <div id="resultado-cierre" class="card p-3 shadow-sm border-0" style="display:none; background: #1f2937;">
       <h6 class="text-muted mb-1">Base Inicial (+)</h6>
-      <h5 class="text-dark">$<span id="res-base"></span></h5>
-      <hr class="my-2">
+      <h5 class="text-white">$<span id="res-base"></span></h5>
+      <hr class="my-2" style="border-color: #374151;">
       <h6 class="text-muted mb-1">Ventas Efectivo (+)</h6>
       <h5 class="text-success">$<span id="res-efe"></span></h5>
-      <hr class="my-2">
+      <hr class="my-2" style="border-color: #374151;">
       <h6 class="text-muted mb-1">Gastos / Salidas (-)</h6>
       <h5 class="text-danger">-$<span id="res-gas"></span></h5>
       <div id="lista-gastos" class="small text-muted mb-2 ps-2 border-start border-danger"></div>
       
-      <div class="bg-light p-2 rounded text-center mt-3 border">
+      <div class="p-2 rounded text-center mt-3" style="background: #111827; border: 1px solid #d4af37;">
         <h6 class="text-muted m-0">EFECTIVO ESPERADO EN CAJA</h6>
         <h3 class="fw-bold text-primary m-0">$<span id="res-esperado"></span></h3>
       </div>
       
-      <hr>
+      <hr style="border-color: #374151;">
       <h6 class="text-muted mb-1">Ventas por Transferencia (Bancos)</h6>
       <h5 class="text-info">$<span id="res-tra"></span></h5>
     </div>
   </div>
 
 <script>
-  // ¡ATENCIÓN! Asegúrate de dejar TU URL aquí:
   const API_URL = "https://script.google.com/macros/s/AKfycbxL629Jw9KzpkM6e045uuDLvtv1eSC4kZMqhRW6qpdmU_IW7AIkLkDDwakBK721J0TR/exec"; 
 
   async function llamarBackend(action, data = {}) {
@@ -319,12 +354,13 @@
     setInterval(sincronizacionSilenciosa, 5000);
   });
 
+  /* ACTUALIZADO: Los círculos del PIN ahora son elegantes puntos '●' en vez de asteriscos */
   function teclearPin(num) {
     if(miPin.length < 4) miPin += num;
-    document.getElementById('display-pin').innerText = '*'.repeat(miPin.length);
+    document.getElementById('display-pin').innerText = '●'.repeat(miPin.length);
     if(miPin.length === 4) setTimeout(validarLogin, 100);
   }
-  function borrarPin() { miPin = miPin.slice(0, -1); document.getElementById('display-pin').innerText = '*'.repeat(miPin.length); }
+  function borrarPin() { miPin = miPin.slice(0, -1); document.getElementById('display-pin').innerText = '●'.repeat(miPin.length); }
 
   function validarLogin() {
     let user = listaUsuarios.find(u => u.pin === miPin);
@@ -356,14 +392,14 @@
     let ocupadas = cacheMesas.map(m => m.referencia); let ocupadasDesglosadas = [];
     ocupadas.forEach(ref => { let partes = ref.split('+').map(p => p.trim().toLowerCase()); ocupadasDesglosadas = ocupadasDesglosadas.concat(partes); });
     let html = '';
-    arrayTodasLasMesas.forEach(m => { if(!ocupadasDesglosadas.includes(m.toLowerCase().trim())) { html += `<div class="col-4"><div id="btn-m-${m}" class="btn-mesa text-primary" onclick="toggleMesaUI('${m}')">${m}</div></div>`; } });
+    arrayTodasLasMesas.forEach(m => { if(!ocupadasDesglosadas.includes(m.toLowerCase().trim())) { html += `<div class="col-4"><div id="btn-m-${m}" class="btn-mesa" onclick="toggleMesaUI('${m}')">${m}</div></div>`; } });
     document.getElementById('grid-mesas').innerHTML = html; mesasSeleccionadasUI = [];
   }
 
   function toggleMesaUI(nombreMesa) {
     let div = document.getElementById('btn-m-' + nombreMesa);
-    if(mesasSeleccionadasUI.includes(nombreMesa)) { mesasSeleccionadasUI = mesasSeleccionadasUI.filter(m => m !== nombreMesa); div.classList.remove('seleccionada'); div.classList.add('text-primary'); } 
-    else { mesasSeleccionadasUI.push(nombreMesa); div.classList.add('seleccionada'); div.classList.remove('text-primary'); }
+    if(mesasSeleccionadasUI.includes(nombreMesa)) { mesasSeleccionadasUI = mesasSeleccionadasUI.filter(m => m !== nombreMesa); div.classList.remove('seleccionada'); } 
+    else { mesasSeleccionadasUI.push(nombreMesa); div.classList.add('seleccionada'); }
   }
 
   function sincronizacionSilenciosa() {
@@ -374,7 +410,7 @@
         let idsRemotos = sync.cerradas.map(c => String(c.id)); let localesFaltantes = cacheCerradas.filter(c => mesasCerradasEnSesion.includes(String(c.id)) && !idsRemotos.includes(String(c.id)));
         cacheCerradas = [...localesFaltantes, ...sync.cerradas]; actualizarSugerenciasMesas();
         if(document.getElementById('vista-lista').classList.contains('activa')) { 
-          renderizarComandasEnPantalla(); // Redibuja si hay cambios de dinero o mesas sin bloquear
+          renderizarComandasEnPantalla(); 
         }
       }
     });
@@ -423,10 +459,8 @@
   function cargarComandasAbiertas(silencioso = false) {
     if(!silencioso) cambiarVista('lista', 'Mesas Activas');
     
-    // 1. DIBUJO INSTANTÁNEO CON MEMORIA LOCAL
     renderizarComandasEnPantalla();
     
-    // 2. VERIFICAR CON GOOGLE EN LA SOMBRA PARA ACTUALIZAR CAJEROS
     if(!silencioso) {
       llamarBackend('sincronizarFondo').then(sync => {
         if(sync) {
@@ -447,16 +481,15 @@
     let html = '';
     listaFiltrada.forEach(c => {
       let esAgrupada = c.referencia.includes('+');
-      let bgHeader = esAgrupada ? 'bg-warning text-dark' : 'bg-primary text-white';
+      let bgHeader = esAgrupada ? 'bg-warning' : 'bg-primary';
       
-      // CALCULAR EL TOTAL EN TIEMPO REAL
       let totalMesa = 0;
       if(cacheDetalles[c.id]) {
          cacheDetalles[c.id].forEach(item => totalMesa += item.subtotal);
       }
 
       html += `<div class="col-6 mb-3">
-                 <div class="mesa-card h-100 border-0" onclick="abrirMesa('${c.id}', '${c.referencia}')">
+                 <div class="mesa-card h-100" onclick="abrirMesa('${c.id}', '${c.referencia}')">
                    <div class="mesa-header ${bgHeader} text-center py-2 fw-bold">
                      🍽️ ${c.referencia}
                    </div>
@@ -493,7 +526,7 @@
     items.forEach(i => {
       totalActual += i.subtotal;
       html += `<div class="item-fila d-flex justify-content-between align-items-center">
-                 <div><span class="fw-bold text-dark">${i.cant}x ${i.nombre}</span><br><small class="text-muted">$${i.subtotal.toLocaleString('es-CO')}</small></div>
+                 <div><span class="fw-bold text-white">${i.cant}x ${i.nombre}</span><br><small class="text-muted">$${i.subtotal.toLocaleString('es-CO')}</small></div>
                  <button class="btn btn-outline-danger btn-sm px-3 shadow-sm" onclick="restarProdInstantaneo('${i.nombre}', ${i.precio})">❌</button></div>`;
     });
     document.getElementById('tabla-detalles').innerHTML = html; document.getElementById('lbl-total').innerText = totalActual.toLocaleString('es-CO');
@@ -567,8 +600,8 @@
     listaFiltrada.forEach(c => {
       html += `<div class="card p-3 mb-2 shadow-sm border-start border-success border-4">
                  <div class="d-flex justify-content-between align-items-center">
-                   <div><h5 class="fw-bold text-dark m-0">${c.referencia}</h5><small class="text-muted">Total: <span class="text-success fw-bold">$${Number(c.total).toLocaleString('es-CO')}</span></small><br><small class="text-muted">Caja: ${c.caja || 'N/A'}</small></div>
-                   <button class="btn btn-outline-dark btn-sm" onclick="verTicket('${c.id}')">Ver Ticket</button>
+                   <div><h5 class="fw-bold text-white m-0">${c.referencia}</h5><small class="text-muted">Total: <span class="text-success fw-bold">$${Number(c.total).toLocaleString('es-CO')}</span></small><br><small class="text-muted">Caja: ${c.caja || 'N/A'}</small></div>
+                   <button class="btn btn-outline-primary btn-sm" onclick="verTicket('${c.id}')">Ver Ticket</button>
                  </div></div>`;
     });
     document.getElementById('contenedor-cerradas').innerHTML = html;
