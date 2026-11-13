@@ -91,7 +91,7 @@
     .menu-item { padding: 15px; border-bottom: 1px solid var(--border-color); font-size: 18px; font-weight: bold; color: var(--text-main); cursor: pointer; display: block; text-decoration: none; }
     .menu-item:active { background: var(--bg-input); }
     
-    /* INTERRUPTOR TEMA iOS EN EL HEADER (Ajustado para navbar) */
+    /* INTERRUPTOR TEMA iOS EN EL HEADER */
     .theme-switch { position: relative; display: inline-block; width: 56px; height: 30px; margin: 0; flex-shrink: 0;}
     .theme-switch input { opacity: 0; width: 0; height: 0; }
     .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #87ceeb; transition: .4s; border-radius: 30px; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; padding: 0 4px; font-size: 14px;}
@@ -134,10 +134,10 @@
   <div class="navbar-top" id="navbar-top">
     <div class="d-flex align-items-center">
       <button class="btn-hamburguesa" data-bs-toggle="offcanvas" data-bs-target="#menuLateral">☰</button>
-      <h4 class="m-0 fw-bold text-primary-theme text-truncate" id="nav-titulo" style="max-width: 160px;">Mesas Activas</h4>
+      <!-- CORRECCIÓN: Título flexible y sin corte brusco -->
+      <h4 class="m-0 fw-bold text-primary-theme" id="nav-titulo">Mesas Activas</h4>
     </div>
     
-    <!-- CONTENEDOR DERECHO: INTERRUPTOR Y BOTÓN INICIO -->
     <div class="d-flex align-items-center gap-2">
       <label class="theme-switch m-0">
         <input type="checkbox" id="checkbox-tema" onchange="toggleTema()" checked>
@@ -146,7 +146,7 @@
           <span class="icon-moon">🌙</span>
         </span>
       </label>
-      <button class="btn btn-dark btn-sm fw-bold shadow-sm" id="btn-nav-inicio" onclick="cargarComandasAbiertas()" style="display:none;">🏠 Inicio</button>
+      <button class="btn btn-dark btn-sm fw-bold shadow-sm" id="btn-nav-inicio" onclick="intentarNavegar(cargarComandasAbiertas)" style="display:none;">🏠 Inicio</button>
     </div>
   </div>
 
@@ -156,11 +156,11 @@
       <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" style="filter: invert(1);"></button>
     </div>
     <div class="offcanvas-body p-0">
-      <a class="menu-item" onclick="cargarComandasAbiertas()" data-bs-dismiss="offcanvas">🏠 Dashboard Mesas</a>
-      <a class="menu-item text-primary-theme" id="btn-menu-venta-rapida" onclick="iniciarVentaRapida()" data-bs-dismiss="offcanvas" style="display:none;">⚡ Venta Rápida</a>
-      <a class="menu-item" style="color: #0ea5e9 !important;" id="btn-menu-caja" onclick="cambiarVista('caja', 'Control de Caja')" data-bs-dismiss="offcanvas" style="display:none;">💵 Control de Caja</a>
-      <a class="menu-item" onclick="cargarComandasCerradas()" data-bs-dismiss="offcanvas">✅ Historial Pagadas</a>
-      <a class="menu-item" id="btn-menu-cierre" onclick="cambiarVista('cierre', 'Cierre de Caja')" data-bs-dismiss="offcanvas" style="display:none;">💰 Cierre del Día</a>
+      <a class="menu-item" onclick="intentarNavegar(cargarComandasAbiertas)" data-bs-dismiss="offcanvas">🏠 Dashboard Mesas</a>
+      <a class="menu-item text-primary-theme" id="btn-menu-venta-rapida" onclick="intentarNavegar(iniciarVentaRapida)" data-bs-dismiss="offcanvas" style="display:none;">⚡ Venta Rápida</a>
+      <a class="menu-item" style="color: #0ea5e9 !important;" id="btn-menu-caja" onclick="intentarNavegar(() => cambiarVista('caja', 'Control de Caja'))" data-bs-dismiss="offcanvas" style="display:none;">💵 Control de Caja</a>
+      <a class="menu-item" onclick="intentarNavegar(cargarComandasCerradas)" data-bs-dismiss="offcanvas">✅ Historial Pagadas</a>
+      <a class="menu-item" id="btn-menu-cierre" onclick="intentarNavegar(() => cambiarVista('cierre', 'Cierre de Caja'))" data-bs-dismiss="offcanvas" style="display:none;">💰 Cierre del Día</a>
 
       <div class="p-3 mt-auto border-top" style="border-color: var(--border-color) !important;">
         <button class="btn btn-outline-danger w-100 fw-bold py-2" onclick="cerrarSesion()" data-bs-dismiss="offcanvas">Cerrar Sesión</button>
@@ -305,7 +305,7 @@
       <div id="pre-items" class="mb-3"></div><hr>
       <h3 class="text-end fw-bold text-success">TOTAL: $<span id="pre-total">0</span></h3>
     </div>
-    <button class="btn btn-primary btn-lg w-100 mt-4 py-3 shadow-sm" onclick="cambiarVista('detalle', 'Mesa')">Volver a la Mesa</button>
+    <button class="btn btn-primary btn-lg w-100 mt-4 py-3 shadow-sm" onclick="intentarNavegar(() => cambiarVista('detalle', 'Mesa'))">Volver a la Mesa</button>
   </div>
 
   <div id="vista-ticket" class="vista container">
@@ -369,34 +369,30 @@
 <script>
   const API_URL = "https://script.google.com/macros/s/AKfycbxL629Jw9KzpkM6e045uuDLvtv1eSC4kZMqhRW6qpdmU_IW7AIkLkDDwakBK721J0TR/exec"; 
 
-  // Lógica del TEMA Día / Noche
   function toggleTema() {
     const htmlElement = document.documentElement;
     const checkbox = document.getElementById('checkbox-tema');
     
     if (checkbox.checked) {
-      // Modo Noche (Checked)
       htmlElement.setAttribute('data-theme', 'dark');
       localStorage.setItem('temaAltamira', 'dark');
       document.getElementById('meta-theme-color').setAttribute('content', '#0b0f19');
     } else {
-      // Modo Día (Unchecked)
       htmlElement.setAttribute('data-theme', 'light');
       localStorage.setItem('temaAltamira', 'light');
       document.getElementById('meta-theme-color').setAttribute('content', '#f0f2f5');
     }
   }
 
-  // Cargar tema guardado al iniciar la app y ajustar el switch
   window.addEventListener('DOMContentLoaded', () => {
     const savedTheme = localStorage.getItem('temaAltamira');
     const checkbox = document.getElementById('checkbox-tema');
     if(savedTheme === 'light') {
       document.documentElement.setAttribute('data-theme', 'light');
       document.getElementById('meta-theme-color').setAttribute('content', '#f0f2f5');
-      if(checkbox) checkbox.checked = false; // Mueve la bolita al sol
+      if(checkbox) checkbox.checked = false; 
     } else {
-      if(checkbox) checkbox.checked = true; // Mueve la bolita a la luna
+      if(checkbox) checkbox.checked = true; 
     }
   });
 
@@ -456,6 +452,32 @@
   }
 
   function cerrarSesion() { usuarioActual = null; miPin = ""; document.getElementById('navbar-top').style.display = 'none'; cambiarVista('login'); }
+
+  // NUEVO GUARDIÁN DE NAVEGACIÓN
+  function intentarNavegar(accionCallback) {
+    if (idActual !== null && document.getElementById('vista-detalle').classList.contains('activa')) {
+      let items = cacheDetalles[idActual] || [];
+      if (items.length === 0) {
+        let ref = document.getElementById('titulo-comanda').innerText;
+        if (ref === "Venta Mostrador") {
+          // Si es venta de mostrador vacía, autoeliminar fantasma y proceder
+          let idEliminar = idActual;
+          cacheMesas = cacheMesas.filter(m => String(m.id) !== idEliminar);
+          delete cacheDetalles[idEliminar];
+          llamarBackend('eliminarComanda', {id: idEliminar});
+          idActual = null;
+        } else {
+          // Si es mesa normal vacía, exigir decisión
+          document.getElementById('modal-vacia').style.display = 'flex';
+          return; 
+        }
+      } else {
+        idActual = null; // Salió de la mesa limpiamente
+      }
+    }
+    // Ejecutar la acción que el usuario realmente quería hacer
+    if (typeof accionCallback === 'function') accionCallback();
+  }
 
   function renderizarCatalogo(listaProds) {
     let htmlProd = ''; listaProds.forEach(p => { htmlProd += `<div class="col-4"><button class="btn btn-outline-primary w-100 btn-producto shadow-sm" onclick="abrirModalCant('${p.nombre}', ${p.precio})"><span class="text-main-theme">${p.nombre}</span><span class="text-success">$${p.precio.toLocaleString('es-CO')}</span></button></div>`; });
@@ -531,21 +553,18 @@
     abrirMesa(nuevoId, ref); llamarBackend('abrirComanda', {id: nuevoId, encargado: enc, referencia: ref});
   }
 
-  function cargarComandasAbiertas(silencioso = false) {
-    if(!silencioso) cambiarVista('lista', 'Mesas Activas');
-    
+  function cargarComandasAbiertas() {
+    cambiarVista('lista', 'Mesas Activas');
     renderizarComandasEnPantalla();
     
-    if(!silencioso) {
-      llamarBackend('sincronizarFondo').then(sync => {
-        if(sync) {
-          cacheMesas = sync.mesas.filter(m => !mesasCerradasEnSesion.includes(String(m.id))); 
-          cacheDetalles = sync.detalles;
-          actualizarSugerenciasMesas(); 
-          renderizarComandasEnPantalla();
-        }
-      });
-    }
+    llamarBackend('sincronizarFondo').then(sync => {
+      if(sync) {
+        cacheMesas = sync.mesas.filter(m => !mesasCerradasEnSesion.includes(String(m.id))); 
+        cacheDetalles = sync.detalles;
+        actualizarSugerenciasMesas(); 
+        renderizarComandasEnPantalla();
+      }
+    });
   }
 
   function renderizarComandasEnPantalla() {
@@ -605,11 +624,6 @@
                  <button class="btn btn-outline-danger btn-sm px-3 shadow-sm" onclick="restarProdInstantaneo('${i.nombre}', ${i.precio})">❌</button></div>`;
     });
     document.getElementById('tabla-detalles').innerHTML = html; document.getElementById('lbl-total').innerText = totalActual.toLocaleString('es-CO');
-  }
-
-  function salirMesa() {
-    if((cacheDetalles[idActual] || []).length === 0) { document.getElementById('modal-vacia').style.display = 'flex'; return; }
-    idActual = null; cargarComandasAbiertas();
   }
 
   function eliminarMesaVacia() {
