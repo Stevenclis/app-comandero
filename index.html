@@ -134,8 +134,7 @@
   <div class="navbar-top" id="navbar-top">
     <div class="d-flex align-items-center">
       <button class="btn-hamburguesa" data-bs-toggle="offcanvas" data-bs-target="#menuLateral">☰</button>
-      <!-- CORRECCIÓN: Título flexible y sin corte brusco -->
-      <h4 class="m-0 fw-bold text-primary-theme" id="nav-titulo">Mesas Activas</h4>
+      <h4 class="m-0 fw-bold text-primary-theme text-truncate" id="nav-titulo" style="max-width: 160px;">Mesas Activas</h4>
     </div>
     
     <div class="d-flex align-items-center gap-2">
@@ -406,7 +405,10 @@
 
   let cacheMesas = [], cacheDetalles = {}, cacheCerradas = [], catalogo = [], listaUsuarios = [];
   let idActual = null, totalActual = 0, usuarioActual = null, miPin = "";
-  let mesasCerradasEnSesion = [], mesasSeleccionadasUI = []; 
+  
+  // NUEVO: Arreglo de lista negra para evitar el parpadeo de mesas fantasmas
+  let mesasCerradasEnSesion = [], mesasSeleccionadasUI = [], mesasEliminadasEnSesion = []; 
+  
   let prodTempNombre = "", prodTempPrecio = 0, prodTempCant = 1;
   let tempGastoCaja = "", tempGastoConcepto = "", tempGastoMonto = 0;
 
@@ -453,29 +455,26 @@
 
   function cerrarSesion() { usuarioActual = null; miPin = ""; document.getElementById('navbar-top').style.display = 'none'; cambiarVista('login'); }
 
-  // NUEVO GUARDIÁN DE NAVEGACIÓN
   function intentarNavegar(accionCallback) {
     if (idActual !== null && document.getElementById('vista-detalle').classList.contains('activa')) {
       let items = cacheDetalles[idActual] || [];
       if (items.length === 0) {
         let ref = document.getElementById('titulo-comanda').innerText;
         if (ref === "Venta Mostrador") {
-          // Si es venta de mostrador vacía, autoeliminar fantasma y proceder
-          let idEliminar = idActual;
+          let idEliminar = String(idActual);
+          mesasEliminadasEnSesion.push(idEliminar); // Lista negra para ignorarla al sincronizar
           cacheMesas = cacheMesas.filter(m => String(m.id) !== idEliminar);
           delete cacheDetalles[idEliminar];
           llamarBackend('eliminarComanda', {id: idEliminar});
           idActual = null;
         } else {
-          // Si es mesa normal vacía, exigir decisión
           document.getElementById('modal-vacia').style.display = 'flex';
           return; 
         }
       } else {
-        idActual = null; // Salió de la mesa limpiamente
+        idActual = null; 
       }
     }
-    // Ejecutar la acción que el usuario realmente quería hacer
     if (typeof accionCallback === 'function') accionCallback();
   }
 
@@ -503,7 +502,9 @@
     if(usuarioActual === null) return;
     llamarBackend('sincronizarFondo').then(sync => {
       if(sync && idActual === null) {
-        cacheMesas = sync.mesas.filter(m => !mesasCerradasEnSesion.includes(String(m.id))); cacheDetalles = sync.detalles;
+        // FILTRO MEJORADO: Ignorar mesas cobradas Y mesas eliminadas (fantasmas)
+        cacheMesas = sync.mesas.filter(m => !mesasCerradasEnSesion.includes(String(m.id)) && !mesasEliminadasEnSesion.includes(String(m.id))); 
+        cacheDetalles = sync.detalles;
         let idsRemotos = sync.cerradas.map(c => String(c.id)); let localesFaltantes = cacheCerradas.filter(c => mesasCerradasEnSesion.includes(String(c.id)) && !idsRemotos.includes(String(c.id)));
         cacheCerradas = [...localesFaltantes, ...sync.cerradas]; actualizarSugerenciasMesas();
         if(document.getElementById('vista-lista').classList.contains('activa')) { 
@@ -559,7 +560,8 @@
     
     llamarBackend('sincronizarFondo').then(sync => {
       if(sync) {
-        cacheMesas = sync.mesas.filter(m => !mesasCerradasEnSesion.includes(String(m.id))); 
+        // FILTRO MEJORADO
+        cacheMesas = sync.mesas.filter(m => !mesasCerradasEnSesion.includes(String(m.id)) && !mesasEliminadasEnSesion.includes(String(m.id))); 
         cacheDetalles = sync.detalles;
         actualizarSugerenciasMesas(); 
         renderizarComandasEnPantalla();
@@ -627,7 +629,10 @@
   }
 
   function eliminarMesaVacia() {
-    let idEliminar = idActual; cacheMesas = cacheMesas.filter(m => String(m.id) !== idEliminar); delete cacheDetalles[idEliminar];
+    let idEliminar = String(idActual); 
+    mesasEliminadasEnSesion.push(idEliminar); // Lista negra
+    cacheMesas = cacheMesas.filter(m => String(m.id) !== idEliminar); 
+    delete cacheDetalles[idEliminar];
     idActual = null; document.getElementById('modal-vacia').style.display = 'none';
     actualizarSugerenciasMesas(); cargarComandasAbiertas(); llamarBackend('eliminarComanda', {id: idEliminar});
   }
