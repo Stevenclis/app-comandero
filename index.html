@@ -57,9 +57,11 @@
     .ticket-content { position: relative; z-index: 1;}
     .header-vista { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
     
-    .pin-display { font-size: 40px; letter-spacing: 15px; font-weight: bold; text-align: center; height: 60px; line-height: 60px; border-bottom: 2px solid #d4af37; margin-bottom: 20px; color: #d4af37;}
-    .teclado-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; max-width: 300px; margin: 0 auto; }
-    .btn-tecla { height: 70px; font-size: 28px; font-weight: bold; border-radius: 50%; background: #111827; border: 1px solid #d4af37; color: #d4af37; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; justify-content: center; align-items: center;}
+    .pin-display { font-size: 40px; letter-spacing: 15px; font-weight: bold; text-align: center; height: 60px; line-height: 60px; border-bottom: 2px solid #d4af37; margin-bottom: 30px; color: #d4af37;}
+    
+    /* TECLADO REDISEÑADO: ANCHO, RECTANGULAR Y VISIBLE */
+    .teclado-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; max-width: 400px; margin: 0 auto; width: 100%; padding: 0 15px;}
+    .btn-tecla { height: 85px; font-size: 36px; font-weight: bold; border-radius: 16px; background: #1f2937; border: 2px solid #d4af37; color: #d4af37; box-shadow: 0 6px 15px rgba(0,0,0,0.4); display: flex; justify-content: center; align-items: center; width: 100%;}
     .btn-tecla:active { background: #d4af37; color: #0b0f19; transform: scale(0.95); }
     
     .offcanvas { background-color: #111827; color: white; border-right: 1px solid #374151;}
@@ -173,9 +175,9 @@
 
   <datalist id="lista-mesas"></datalist>
 
-  <div id="vista-login" class="vista activa container pt-4 d-flex flex-column align-items-center">
-    <!-- El logo de Altamira para la pantalla de inicio -->
-    <img src="logo.png" class="logo-login" alt="Altamira">
+  <!-- EL CONTENEDOR DEL LOGIN FUE CORREGIDO PARA NO SUPERPONERSE -->
+  <div id="vista-login" class="vista activa container pt-4 text-center">
+    <img src="logo.png" class="logo-login mx-auto d-block" alt="Altamira">
     <h1 class="text-center mb-1 fw-bold" style="color: #d4af37;">Comandero</h1>
     <p class="text-center text-muted mb-4">Ingresa tu PIN</p>
     <div class="pin-display" id="display-pin"></div>
@@ -354,7 +356,6 @@
     setInterval(sincronizacionSilenciosa, 5000);
   });
 
-  /* ACTUALIZADO: Los círculos del PIN ahora son elegantes puntos '●' en vez de asteriscos */
   function teclearPin(num) {
     if(miPin.length < 4) miPin += num;
     document.getElementById('display-pin').innerText = '●'.repeat(miPin.length);
