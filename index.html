@@ -27,23 +27,31 @@
     .panel-flotante { position: fixed; bottom: 0; left: 0; width: 100%; background: white; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); padding: 10px 15px; z-index: 100; display: flex; justify-content: space-between; align-items: center; }
     .lista-comanda { max-height: 35vh; overflow-y: auto; background: white; border-radius: 8px; padding: 10px;}
     .item-fila { border-bottom: 1px solid #eee; padding: 8px 0; }
+    
+    /* NUEVO DISEÑO DE TARJETAS DE MESA */
+    .mesa-card { border-radius: 16px; transition: transform 0.1s; box-shadow: 0 4px 8px rgba(0,0,0,0.08); cursor: pointer; }
+    .mesa-card:active { transform: scale(0.95); }
+    .mesa-header { border-radius: 16px 16px 0 0; font-size: 1.1rem; }
+    .mesa-body { border-radius: 0 0 16px 16px; border: 1px solid #dee2e6; border-top: none; background: white; }
+
     .alerta-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; display:none; justify-content:center; align-items:center; }
     .alerta-caja { background: white; padding: 25px; border-radius: 16px; width: 90%; max-width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); animation: popIn 0.2s ease; }
     @keyframes popIn { 0% { transform: scale(0.8); opacity: 0;} 100% { transform: scale(1); opacity: 1;} }
     .alerta-icono { font-size: 40px; margin-bottom: 10px; }
     #pantalla-carga { position: fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:9000; display:flex; flex-direction:column; justify-content:center; align-items:center; }
+    
+    /* Botones cuadrícula nueva mesa */
     .btn-mesa { border: 2px solid #0d6efd; border-radius: 8px; padding: 10px; font-weight: bold; cursor: pointer; transition: 0.2s; text-align: center; }
     .btn-mesa.seleccionada { background-color: #0d6efd; color: white; transform: scale(1.05); }
+    
     .ticket { background: white; padding: 20px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.1); width: 100%; max-width: 400px; margin: 0 auto; font-family: monospace; position: relative;}
     .sello-pagada { position: absolute; top: 30%; left: 10%; font-size: 50px; color: rgba(220, 53, 69, 0.2); transform: rotate(-30deg); font-weight: bold; border: 5px solid rgba(220, 53, 69, 0.2); padding: 10px; z-index: 0; pointer-events: none;}
     .ticket-content { position: relative; z-index: 1;}
     .header-vista { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-    .btn-inicio-nav { font-weight: bold; padding: 8px 16px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
     .pin-display { font-size: 40px; letter-spacing: 15px; font-weight: bold; text-align: center; height: 60px; line-height: 60px; border-bottom: 3px solid #0d6efd; margin-bottom: 20px; color: #0d6efd;}
     .teclado-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 300px; margin: 0 auto; }
     .btn-tecla { height: 70px; font-size: 28px; font-weight: bold; border-radius: 12px; background: white; border: 1px solid #ddd; box-shadow: 0 2px 5px rgba(0,0,0,0.05); color: #333; }
     .btn-tecla:active { background: #f0f0f0; transform: scale(0.95); }
-    
     .menu-item { padding: 15px; border-bottom: 1px solid #eee; font-size: 18px; font-weight: bold; color: #333; cursor: pointer; display: block; text-decoration: none; }
     .menu-item:active { background: #f8f9fa; }
   </style>
@@ -70,13 +78,10 @@
     </div>
     <div class="offcanvas-body p-0">
       <a class="menu-item" onclick="cargarComandasAbiertas()" data-bs-dismiss="offcanvas">🏠 Dashboard Mesas</a>
-      
       <a class="menu-item text-warning" id="btn-menu-venta-rapida" onclick="iniciarVentaRapida()" data-bs-dismiss="offcanvas" style="display:none;">⚡ Venta Rápida</a>
       <a class="menu-item text-primary" id="btn-menu-caja" onclick="cambiarVista('caja', 'Control de Caja')" data-bs-dismiss="offcanvas" style="display:none;">💵 Control de Caja (Base/Gastos)</a>
-      
       <a class="menu-item" onclick="cargarComandasCerradas()" data-bs-dismiss="offcanvas">✅ Historial Pagadas</a>
       <a class="menu-item" id="btn-menu-cierre" onclick="cambiarVista('cierre', 'Cierre de Caja')" data-bs-dismiss="offcanvas" style="display:none;">💰 Cierre del Día</a>
-      
       <div class="p-3 mt-auto border-top">
         <button class="btn btn-outline-danger w-100 fw-bold py-2" onclick="cerrarSesion()" data-bs-dismiss="offcanvas">Cerrar Sesión</button>
       </div>
@@ -120,7 +125,6 @@
     </div>
   </div>
 
-  <!-- NUEVO: Modal de Confirmación de Gasto Excesivo -->
   <div id="modal-gasto-exceso" class="alerta-overlay">
     <div class="alerta-caja border-danger">
       <div class="alerta-icono text-danger">⚠️</div>
@@ -176,7 +180,6 @@
         <button class="btn btn-primary w-100 fw-bold" onclick="guardarMovimientoCaja('Base')">Guardar Base</button>
       </div>
     </div>
-
     <div class="card shadow-sm border-0">
       <div class="card-body">
         <h5 class="fw-bold text-danger">Registrar Salida / Gasto</h5>
@@ -284,7 +287,7 @@
 
 <script>
   // ¡ATENCIÓN! Asegúrate de dejar TU URL aquí:
-  const API_URL = "https://script.google.com/macros/s/AKfycbxL629Jw9KzpkM6e045uuDLvtv1eSC4kZMqhRW6qpdmU_IW7AIkLkDDwakBK721J0TR/exec"; 
+  const API_URL = "AQUI_PEGA_TU_URL_DE_APPS_SCRIPT"; 
 
   async function llamarBackend(action, data = {}) {
     data.action = action;
@@ -298,8 +301,6 @@
   let idActual = null, totalActual = 0, usuarioActual = null, miPin = "";
   let mesasCerradasEnSesion = [], mesasSeleccionadasUI = []; 
   let prodTempNombre = "", prodTempPrecio = 0, prodTempCant = 1;
-  
-  // Variables temporales para forzar el gasto si el usuario acepta
   let tempGastoCaja = "", tempGastoConcepto = "", tempGastoMonto = 0;
 
   const arrayTodasLasMesas = [];
@@ -310,17 +311,11 @@
     if(!res) { document.getElementById('pantalla-carga').innerHTML = '<h4 class="mt-3 text-danger">Error Base de Datos</h4>'; return; }
     catalogo = res.productos; cacheMesas = res.sync.mesas; cacheDetalles = res.sync.detalles; cacheCerradas = res.sync.cerradas; listaUsuarios = res.usuarios; 
     renderizarCatalogo(catalogo);
-
     let opCajas = '<option value="" disabled selected>Selecciona la Caja...</option>';
     res.cajas.forEach(c => opCajas += `<option value="${c}">${c}</option>`);
-    
-    document.getElementById('sel-caja').innerHTML = opCajas;
-    document.getElementById('sel-caja-base').innerHTML = opCajas;
-    document.getElementById('sel-caja-gasto').innerHTML = opCajas;
-    document.getElementById('cierre-caja').innerHTML = opCajas;
-
-    actualizarSugerenciasMesas();
-    document.getElementById('pantalla-carga').style.display = 'none';
+    document.getElementById('sel-caja').innerHTML = opCajas; document.getElementById('sel-caja-base').innerHTML = opCajas;
+    document.getElementById('sel-caja-gasto').innerHTML = opCajas; document.getElementById('cierre-caja').innerHTML = opCajas;
+    actualizarSugerenciasMesas(); document.getElementById('pantalla-carga').style.display = 'none';
     setInterval(sincronizacionSilenciosa, 5000);
   });
 
@@ -334,10 +329,8 @@
   function validarLogin() {
     let user = listaUsuarios.find(u => u.pin === miPin);
     if(user) {
-      usuarioActual = user;
-      document.getElementById('label-usuario-activo').innerText = user.nombre;
-      aplicarPermisos();
-      document.getElementById('navbar-top').style.display = 'flex';
+      usuarioActual = user; document.getElementById('label-usuario-activo').innerText = user.nombre;
+      aplicarPermisos(); document.getElementById('navbar-top').style.display = 'flex';
       cargarComandasAbiertas(); 
     } else { mostrarAlerta("Error", "PIN incorrecto."); }
     miPin = ""; document.getElementById('display-pin').innerText = "";
@@ -351,61 +344,37 @@
     document.getElementById('btn-abrir-pago').style.display = esCajero ? 'block' : 'none';
   }
 
-  function cerrarSesion() { 
-    usuarioActual = null; miPin = ""; 
-    document.getElementById('navbar-top').style.display = 'none';
-    cambiarVista('login'); 
-  }
+  function cerrarSesion() { usuarioActual = null; miPin = ""; document.getElementById('navbar-top').style.display = 'none'; cambiarVista('login'); }
 
   function renderizarCatalogo(listaProds) {
-    let htmlProd = '';
-    listaProds.forEach(p => {
-      htmlProd += `<div class="col-4"><button class="btn btn-outline-primary w-100 btn-producto shadow-sm" onclick="abrirModalCant('${p.nombre}', ${p.precio})"><span>${p.nombre}</span><span class="text-success">$${p.precio.toLocaleString('es-CO')}</span></button></div>`;
-    });
+    let htmlProd = ''; listaProds.forEach(p => { htmlProd += `<div class="col-4"><button class="btn btn-outline-primary w-100 btn-producto shadow-sm" onclick="abrirModalCant('${p.nombre}', ${p.precio})"><span>${p.nombre}</span><span class="text-success">$${p.precio.toLocaleString('es-CO')}</span></button></div>`; });
     document.getElementById('contenedor-productos').innerHTML = htmlProd;
   }
-  function filtrarProductos() {
-    let texto = document.getElementById('buscador-prod').value.toLowerCase();
-    renderizarCatalogo(catalogo.filter(p => p.nombre.toLowerCase().includes(texto)));
-  }
+  function filtrarProductos() { let texto = document.getElementById('buscador-prod').value.toLowerCase(); renderizarCatalogo(catalogo.filter(p => p.nombre.toLowerCase().includes(texto))); }
 
   function actualizarSugerenciasMesas() {
-    let ocupadas = cacheMesas.map(m => m.referencia);
-    let ocupadasDesglosadas = [];
+    let ocupadas = cacheMesas.map(m => m.referencia); let ocupadasDesglosadas = [];
     ocupadas.forEach(ref => { let partes = ref.split('+').map(p => p.trim().toLowerCase()); ocupadasDesglosadas = ocupadasDesglosadas.concat(partes); });
     let html = '';
-    arrayTodasLasMesas.forEach(m => {
-      if(!ocupadasDesglosadas.includes(m.toLowerCase().trim())) {
-        html += `<div class="col-4"><div id="btn-m-${m}" class="btn-mesa text-primary" onclick="toggleMesaUI('${m}')">${m}</div></div>`;
-      }
-    });
+    arrayTodasLasMesas.forEach(m => { if(!ocupadasDesglosadas.includes(m.toLowerCase().trim())) { html += `<div class="col-4"><div id="btn-m-${m}" class="btn-mesa text-primary" onclick="toggleMesaUI('${m}')">${m}</div></div>`; } });
     document.getElementById('grid-mesas').innerHTML = html; mesasSeleccionadasUI = [];
   }
 
   function toggleMesaUI(nombreMesa) {
     let div = document.getElementById('btn-m-' + nombreMesa);
-    if(mesasSeleccionadasUI.includes(nombreMesa)) {
-      mesasSeleccionadasUI = mesasSeleccionadasUI.filter(m => m !== nombreMesa);
-      div.classList.remove('seleccionada'); div.classList.add('text-primary');
-    } else {
-      mesasSeleccionadasUI.push(nombreMesa);
-      div.classList.add('seleccionada'); div.classList.remove('text-primary');
-    }
+    if(mesasSeleccionadasUI.includes(nombreMesa)) { mesasSeleccionadasUI = mesasSeleccionadasUI.filter(m => m !== nombreMesa); div.classList.remove('seleccionada'); div.classList.add('text-primary'); } 
+    else { mesasSeleccionadasUI.push(nombreMesa); div.classList.add('seleccionada'); div.classList.remove('text-primary'); }
   }
 
   function sincronizacionSilenciosa() {
     if(usuarioActual === null) return;
     llamarBackend('sincronizarFondo').then(sync => {
       if(sync && idActual === null) {
-        cacheMesas = sync.mesas.filter(m => !mesasCerradasEnSesion.includes(String(m.id)));
-        cacheDetalles = sync.detalles;
-        let idsRemotos = sync.cerradas.map(c => String(c.id));
-        let localesFaltantes = cacheCerradas.filter(c => mesasCerradasEnSesion.includes(String(c.id)) && !idsRemotos.includes(String(c.id)));
-        cacheCerradas = [...localesFaltantes, ...sync.cerradas];
-        
-        actualizarSugerenciasMesas();
-        if(document.getElementById('vista-lista').classList.contains('activa')) {
-          cargarComandasAbiertas(true); 
+        cacheMesas = sync.mesas.filter(m => !mesasCerradasEnSesion.includes(String(m.id))); cacheDetalles = sync.detalles;
+        let idsRemotos = sync.cerradas.map(c => String(c.id)); let localesFaltantes = cacheCerradas.filter(c => mesasCerradasEnSesion.includes(String(c.id)) && !idsRemotos.includes(String(c.id)));
+        cacheCerradas = [...localesFaltantes, ...sync.cerradas]; actualizarSugerenciasMesas();
+        if(document.getElementById('vista-lista').classList.contains('activa')) { 
+          renderizarComandasEnPantalla(); // Redibuja si hay cambios de dinero o mesas sin bloquear
         }
       }
     });
@@ -434,64 +403,67 @@
     document.getElementById('panel-cobro').style.display = (id === 'detalle') ? 'flex' : 'none';
     if(tituloNav !== "") document.getElementById('nav-titulo').innerText = tituloNav;
     if(id === 'nueva') document.getElementById('label-encargado-nueva').innerText = usuarioActual.nombre;
-
-    if(id !== 'lista' && id !== 'login') {
-      document.getElementById('btn-nav-inicio').style.display = 'block';
-    } else {
-      document.getElementById('btn-nav-inicio').style.display = 'none';
-    }
+    if(id !== 'lista' && id !== 'login') { document.getElementById('btn-nav-inicio').style.display = 'block'; } else { document.getElementById('btn-nav-inicio').style.display = 'none'; }
   }
 
   function crearComanda() {
     let enc = usuarioActual.nombre; 
     if(mesasSeleccionadasUI.length === 0) return mostrarAlerta("Datos Faltantes", "Toca al menos una mesa de la lista.");
-    let ref = mesasSeleccionadasUI.join(' + ');
-    let nuevoId = String(new Date().getTime());
-    cacheMesas.unshift({ id: nuevoId, fecha: 'Hoy', encargado: enc, referencia: ref });
-    cacheDetalles[nuevoId] = [];
-    actualizarSugerenciasMesas();
-    abrirMesa(nuevoId, ref);
-    llamarBackend('abrirComanda', {id: nuevoId, encargado: enc, referencia: ref});
+    let ref = mesasSeleccionadasUI.join(' + '); let nuevoId = String(new Date().getTime());
+    cacheMesas.unshift({ id: nuevoId, fecha: 'Hoy', encargado: enc, referencia: ref }); cacheDetalles[nuevoId] = [];
+    actualizarSugerenciasMesas(); abrirMesa(nuevoId, ref); llamarBackend('abrirComanda', {id: nuevoId, encargado: enc, referencia: ref});
   }
 
   function iniciarVentaRapida() {
     let enc = usuarioActual.nombre; let ref = "Venta Mostrador"; let nuevoId = String(new Date().getTime());
     cacheMesas.unshift({ id: nuevoId, fecha: 'Hoy', encargado: enc, referencia: ref }); cacheDetalles[nuevoId] = [];
-    abrirMesa(nuevoId, ref);
-    llamarBackend('abrirComanda', {id: nuevoId, encargado: enc, referencia: ref});
+    abrirMesa(nuevoId, ref); llamarBackend('abrirComanda', {id: nuevoId, encargado: enc, referencia: ref});
   }
 
   function cargarComandasAbiertas(silencioso = false) {
     if(!silencioso) cambiarVista('lista', 'Mesas Activas');
     
-    // NUEVO: Fuerza una sincronización profunda para que el cajero vea las mesas nuevas
+    // 1. DIBUJO INSTANTÁNEO CON MEMORIA LOCAL
+    renderizarComandasEnPantalla();
+    
+    // 2. VERIFICAR CON GOOGLE EN LA SOMBRA PARA ACTUALIZAR CAJEROS
     if(!silencioso) {
       llamarBackend('sincronizarFondo').then(sync => {
         if(sync) {
-          cacheMesas = sync.mesas.filter(m => !mesasCerradasEnSesion.includes(String(m.id)));
+          cacheMesas = sync.mesas.filter(m => !mesasCerradasEnSesion.includes(String(m.id))); 
           cacheDetalles = sync.detalles;
-          actualizarSugerenciasMesas();
+          actualizarSugerenciasMesas(); 
           renderizarComandasEnPantalla();
         }
       });
-    } else {
-      renderizarComandasEnPantalla();
     }
   }
 
   function renderizarComandasEnPantalla() {
     let listaFiltrada = cacheMesas;
-    if(usuarioActual.rol.toLowerCase() !== 'cajero') {
-      listaFiltrada = cacheMesas.filter(m => m.encargado === usuarioActual.nombre);
-    }
-
+    if(usuarioActual.rol.toLowerCase() !== 'cajero') { listaFiltrada = cacheMesas.filter(m => m.encargado === usuarioActual.nombre); }
     if(listaFiltrada.length === 0) { document.getElementById('contenedor-comandas').innerHTML = '<p class="text-center mt-4 text-muted">No hay mesas activas.</p>'; return; }
+    
     let html = '';
     listaFiltrada.forEach(c => {
-      let bg = c.referencia.includes('+') ? 'border-warning' : 'border-primary';
+      let esAgrupada = c.referencia.includes('+');
+      let bgHeader = esAgrupada ? 'bg-warning text-dark' : 'bg-primary text-white';
+      
+      // CALCULAR EL TOTAL EN TIEMPO REAL
+      let totalMesa = 0;
+      if(cacheDetalles[c.id]) {
+         cacheDetalles[c.id].forEach(item => totalMesa += item.subtotal);
+      }
+
       html += `<div class="col-6 mb-3">
-                 <div class="card p-3 shadow-sm border-start ${bg} border-4 h-100" style="cursor:pointer;" onclick="abrirMesa('${c.id}', '${c.referencia}')">
-                   <h5 class="fw-bold text-dark m-0">${c.referencia}</h5><small class="text-muted">${c.encargado}</small>
+                 <div class="mesa-card h-100 border-0" onclick="abrirMesa('${c.id}', '${c.referencia}')">
+                   <div class="mesa-header ${bgHeader} text-center py-2 fw-bold">
+                     🍽️ ${c.referencia}
+                   </div>
+                   <div class="mesa-body text-center p-2 d-flex flex-column justify-content-center h-100">
+                     <small class="text-muted mb-1 text-truncate">👤 ${c.encargado}</small>
+                     <h5 class="text-success fw-bold m-0">$${totalMesa.toLocaleString('es-CO')}</h5>
+                   </div>
                  </div>
                </div>`;
     });
@@ -499,23 +471,19 @@
   }
 
   function abrirMesa(id, referencia) {
-    idActual = String(id);
-    document.getElementById('titulo-comanda').innerText = referencia;
+    idActual = String(id); document.getElementById('titulo-comanda').innerText = referencia;
     document.getElementById('buscador-prod').value = ""; renderizarCatalogo(catalogo);
-    cambiarVista('detalle', 'Mesa: ' + referencia);
-    renderizarListaInstantanea();
+    cambiarVista('detalle', 'Mesa: ' + referencia); renderizarListaInstantanea();
   }
 
   function restarProdInstantaneo(nombre, precio) { ejecutarMovimientoLocal(nombre, precio, -1); }
 
   function ejecutarMovimientoLocal(nombre, precio, cantidad) {
-    let subtotal = precio * cantidad;
-    let existente = cacheDetalles[idActual].find(i => i.nombre === nombre);
+    let subtotal = precio * cantidad; let existente = cacheDetalles[idActual].find(i => i.nombre === nombre);
     if(existente) { existente.cant += cantidad; existente.subtotal += subtotal; } 
     else if (cantidad > 0) { cacheDetalles[idActual].push({nombre: nombre, cant: cantidad, precio: precio, subtotal: subtotal}); }
     cacheDetalles[idActual] = cacheDetalles[idActual].filter(i => i.cant > 0);
-    renderizarListaInstantanea();
-    llamarBackend('registrarMovimiento', {id: idActual, nombre: nombre, precio: precio, cantidad: cantidad});
+    renderizarListaInstantanea(); llamarBackend('registrarMovimiento', {id: idActual, nombre: nombre, precio: precio, cantidad: cantidad});
   }
 
   function renderizarListaInstantanea() {
@@ -539,13 +507,11 @@
   function eliminarMesaVacia() {
     let idEliminar = idActual; cacheMesas = cacheMesas.filter(m => String(m.id) !== idEliminar); delete cacheDetalles[idEliminar];
     idActual = null; document.getElementById('modal-vacia').style.display = 'none';
-    actualizarSugerenciasMesas(); cargarComandasAbiertas();
-    llamarBackend('eliminarComanda', {id: idEliminar});
+    actualizarSugerenciasMesas(); cargarComandasAbiertas(); llamarBackend('eliminarComanda', {id: idEliminar});
   }
 
   function mostrarPreCuenta() {
-    let items = cacheDetalles[idActual] || [];
-    if(items.length === 0) return mostrarAlerta("Vacía", "No hay productos para mostrar.");
+    let items = cacheDetalles[idActual] || []; if(items.length === 0) return mostrarAlerta("Vacía", "No hay productos para mostrar.");
     document.getElementById('pre-mesa').innerText = document.getElementById('titulo-comanda').innerText;
     let html = ''; items.forEach(i => { html += `<div class="d-flex justify-content-between mb-1"><span>${i.cant}x ${i.nombre}</span><span>$${i.subtotal.toLocaleString('es-CO')}</span></div>`; });
     document.getElementById('pre-items').innerHTML = html; document.getElementById('pre-total').innerText = totalActual.toLocaleString('es-CO');
@@ -593,13 +559,10 @@
 
   function cargarComandasCerradas() {
     cambiarVista('cerradas', 'Historial Pagadas');
-    
     let listaFiltrada = cacheCerradas;
-    if(usuarioActual.rol.toLowerCase() !== 'cajero') {
-      listaFiltrada = cacheCerradas.filter(c => c.encargado === usuarioActual.nombre);
-    }
+    if(usuarioActual.rol.toLowerCase() !== 'cajero') { listaFiltrada = cacheCerradas.filter(c => c.encargado === usuarioActual.nombre); }
 
-    if(listaFiltrada.length === 0) { document.getElementById('contenedor-cerradas').innerHTML = '<p class="text-center mt-4 text-muted">No hay facturas en tu historial hoy.</p>'; return; }
+    if(listaFiltrada.length === 0) { document.getElementById('contenedor-cerradas').innerHTML = '<p class="text-center mt-4 text-muted">No hay facturas hoy.</p>'; return; }
     let html = '';
     listaFiltrada.forEach(c => {
       html += `<div class="card p-3 mb-2 shadow-sm border-start border-success border-4">
@@ -624,7 +587,6 @@
     });
   }
 
-  // --- LOGICA DE CAJA ACTUALIZADA ---
   function guardarMovimientoCaja(tipo) {
     let fecha = new Date().toISOString().split('T')[0];
     let caja = (tipo === 'Base') ? document.getElementById('sel-caja-base').value : document.getElementById('sel-caja-gasto').value;
@@ -636,24 +598,16 @@
     if(monto <= 0) return mostrarAlerta("Error", "Ingresa un monto válido.");
     if(tipo === 'Gasto' && !concepto) return mostrarAlerta("Error", "Escribe el concepto del gasto.");
 
-    // NUEVO: Verificación antes de guardar
     llamarBackend('hacerCierre', {fecha: fecha, caja: caja}).then(res => {
       if(tipo === 'Base') {
-        // Prevenir bases múltiples
-        if(res.base > 0) {
-          mostrarAlerta("Atención", "Ya existe una base registrada para esta caja hoy.");
-        } else {
-          ejecutarGuardadoCaja(fecha, caja, tipo, concepto, monto);
-        }
+        if(res.base > 0) { mostrarAlerta("Atención", "Ya existe una base registrada para esta caja hoy."); } 
+        else { ejecutarGuardadoCaja(fecha, caja, tipo, concepto, monto); }
       } else if (tipo === 'Gasto') {
-        // Prevenir gastos que superen el efectivo
         if(monto > res.efectivoEsperado) {
           tempGastoCaja = caja; tempGastoConcepto = concepto; tempGastoMonto = monto;
           document.getElementById('gasto-exceso-mensaje').innerText = `Estás intentando gastar $${monto.toLocaleString('es-CO')}, pero el efectivo esperado en caja es de solo $${res.efectivoEsperado.toLocaleString('es-CO')}.`;
           document.getElementById('modal-gasto-exceso').style.display = 'flex';
-        } else {
-          ejecutarGuardadoCaja(fecha, caja, tipo, concepto, monto);
-        }
+        } else { ejecutarGuardadoCaja(fecha, caja, tipo, concepto, monto); }
       }
     });
   }
@@ -665,10 +619,8 @@
   }
 
   function ejecutarGuardadoCaja(fecha, caja, tipo, concepto, monto) {
-    mostrarAlerta("Éxito", `${tipo} registrado correctamente.`, "success");
-    document.getElementById('in-base').value = '';
-    document.getElementById('in-gasto-concepto').value = '';
-    document.getElementById('in-gasto-monto').value = '';
+    mostrarAlerta("Éxito", `${tipo} registrado.`, "success");
+    document.getElementById('in-base').value = ''; document.getElementById('in-gasto-concepto').value = ''; document.getElementById('in-gasto-monto').value = '';
     llamarBackend('registrarMovCaja', {fecha: fecha, caja: caja, tipo: tipo, concepto: concepto, monto: monto});
   }
 
@@ -684,11 +636,8 @@
       document.getElementById('res-tra').innerText = res.transferencia.toLocaleString('es-CO');
       
       let htmlGastos = '';
-      if(res.listaGastos.length > 0) {
-        res.listaGastos.forEach(g => {
-          htmlGastos += `<div>- ${g.concepto}: $${g.monto.toLocaleString('es-CO')}</div>`;
-        });
-      } else { htmlGastos = "Sin gastos registrados."; }
+      if(res.listaGastos.length > 0) { res.listaGastos.forEach(g => { htmlGastos += `<div>- ${g.concepto}: $${g.monto.toLocaleString('es-CO')}</div>`; }); } 
+      else { htmlGastos = "Sin gastos registrados."; }
       document.getElementById('lista-gastos').innerHTML = htmlGastos;
 
       document.getElementById('resultado-cierre').style.display = 'block';
