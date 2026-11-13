@@ -55,17 +55,14 @@
     <h4 class="mt-3 text-muted">Cargando Sistema...</h4>
   </div>
 
-  <!-- NAVBAR SUPERIOR -->
   <div class="navbar-top" id="navbar-top">
     <div class="d-flex align-items-center">
       <button class="btn-hamburguesa" data-bs-toggle="offcanvas" data-bs-target="#menuLateral">☰</button>
       <h4 class="m-0 fw-bold" id="nav-titulo">Mesas Activas</h4>
     </div>
-    <!-- NUEVO: Botón de Inicio Rápido en el NavBar (Visible solo cuando sea necesario) -->
     <button class="btn btn-light btn-sm fw-bold shadow-sm" id="btn-nav-inicio" onclick="cargarComandasAbiertas()" style="display:none;">🏠 Inicio</button>
   </div>
 
-  <!-- MENÚ LATERAL (OFFCANVAS) -->
   <div class="offcanvas offcanvas-start" tabindex="-1" id="menuLateral">
     <div class="offcanvas-header bg-primary text-white">
       <h5 class="offcanvas-title fw-bold">👤 <span id="label-usuario-activo">Usuario</span></h5>
@@ -74,7 +71,6 @@
     <div class="offcanvas-body p-0">
       <a class="menu-item" onclick="cargarComandasAbiertas()" data-bs-dismiss="offcanvas">🏠 Dashboard Mesas</a>
       
-      <!-- EXCLUSIVOS CAJERO -->
       <a class="menu-item text-warning" id="btn-menu-venta-rapida" onclick="iniciarVentaRapida()" data-bs-dismiss="offcanvas" style="display:none;">⚡ Venta Rápida</a>
       <a class="menu-item text-primary" id="btn-menu-caja" onclick="cambiarVista('caja', 'Control de Caja')" data-bs-dismiss="offcanvas" style="display:none;">💵 Control de Caja (Base/Gastos)</a>
       
@@ -87,7 +83,6 @@
     </div>
   </div>
 
-  <!-- MODALES DE ALERTA -->
   <div id="alerta-custom" class="alerta-overlay">
     <div class="alerta-caja">
       <div id="alerta-icono" class="alerta-icono">⚠️</div>
@@ -125,9 +120,21 @@
     </div>
   </div>
 
+  <!-- NUEVO: Modal de Confirmación de Gasto Excesivo -->
+  <div id="modal-gasto-exceso" class="alerta-overlay">
+    <div class="alerta-caja border-danger">
+      <div class="alerta-icono text-danger">⚠️</div>
+      <h4 class="fw-bold mb-2 text-danger">Fondo Insuficiente</h4>
+      <p class="text-muted mb-4" id="gasto-exceso-mensaje">El gasto es mayor al efectivo en caja.</p>
+      <div class="d-flex gap-2">
+        <button class="btn btn-secondary w-50 fw-bold" onclick="document.getElementById('modal-gasto-exceso').style.display='none';">Cancelar</button>
+        <button class="btn btn-danger w-50 fw-bold" onclick="forzarGasto()">Registrar Gasto</button>
+      </div>
+    </div>
+  </div>
+
   <datalist id="lista-mesas"></datalist>
 
-  <!-- VISTA LOGIN -->
   <div id="vista-login" class="vista activa container pt-4">
     <h1 class="text-center mb-1 text-primary fw-bold">📱 Comandero</h1>
     <p class="text-center text-muted mb-4">Ingresa tu PIN</p>
@@ -148,14 +155,11 @@
     </div>
   </div>
 
-  <!-- VISTA LISTA DE MESAS (AHORA ES EL INICIO/DASHBOARD) -->
   <div id="vista-lista" class="vista container">
     <div id="contenedor-comandas" class="row"></div>
-    <!-- BOTÓN FLOTANTE PARA MESEROS -->
     <div class="btn-flotante-add" onclick="cambiarVista('nueva', 'Abrir Mesa')">✚</div>
   </div>
 
-  <!-- VISTA NUEVA MESA -->
   <div id="vista-nueva" class="vista container">
     <div class="alert alert-info py-2 mb-3 fw-bold">Atiende: <span id="label-encargado-nueva"></span></div>
     <label class="text-muted fw-bold mb-2">Selecciona la(s) mesa(s):</label>
@@ -163,7 +167,6 @@
     <button class="btn btn-success btn-lg w-100 py-3 shadow-sm" onclick="crearComanda()">Abrir y Pedir</button>
   </div>
 
-  <!-- VISTA CAJA Y GASTOS (NUEVO) -->
   <div id="vista-caja" class="vista container">
     <div class="card shadow-sm border-0 mb-4">
       <div class="card-body">
@@ -185,15 +188,13 @@
     </div>
   </div>
 
-  <!-- HISTORIAL -->
   <div id="vista-cerradas" class="vista container">
     <div id="contenedor-cerradas"></div>
   </div>
 
-  <!-- VISTA DENTRO DE LA MESA -->
   <div id="vista-detalle" class="vista">
     <div class="header-vista px-3">
-      <h4 id="titulo-comanda" class="m-0 fw-bold text-primary" style="display:none;">Mesa</h4> <!-- Oculto porque el título va arriba ahora -->
+      <h4 id="titulo-comanda" class="m-0 fw-bold text-primary" style="display:none;">Mesa</h4>
       <div class="d-flex gap-2 w-100 justify-content-end">
         <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="mostrarPreCuenta()">🧾 Cuenta</button>
       </div>
@@ -297,6 +298,9 @@
   let idActual = null, totalActual = 0, usuarioActual = null, miPin = "";
   let mesasCerradasEnSesion = [], mesasSeleccionadasUI = []; 
   let prodTempNombre = "", prodTempPrecio = 0, prodTempCant = 1;
+  
+  // Variables temporales para forzar el gasto si el usuario acepta
+  let tempGastoCaja = "", tempGastoConcepto = "", tempGastoMonto = 0;
 
   const arrayTodasLasMesas = [];
   for(let i=1; i<=40; i++) arrayTodasLasMesas.push("Mesa " + i);
@@ -334,7 +338,7 @@
       document.getElementById('label-usuario-activo').innerText = user.nombre;
       aplicarPermisos();
       document.getElementById('navbar-top').style.display = 'flex';
-      cargarComandasAbiertas(); // Va directo a las mesas
+      cargarComandasAbiertas(); 
     } else { mostrarAlerta("Error", "PIN incorrecto."); }
     miPin = ""; document.getElementById('display-pin').innerText = "";
   }
@@ -400,10 +404,8 @@
         cacheCerradas = [...localesFaltantes, ...sync.cerradas];
         
         actualizarSugerenciasMesas();
-        
-        // Refresca la vista si está en Dashboard
         if(document.getElementById('vista-lista').classList.contains('activa')) {
-          cargarComandasAbiertas(true); // true para no reiniciar scroll
+          cargarComandasAbiertas(true); 
         }
       }
     });
@@ -433,7 +435,6 @@
     if(tituloNav !== "") document.getElementById('nav-titulo').innerText = tituloNav;
     if(id === 'nueva') document.getElementById('label-encargado-nueva').innerText = usuarioActual.nombre;
 
-    // Mostrar u ocultar el botón de Inicio Rápido en la navbar
     if(id !== 'lista' && id !== 'login') {
       document.getElementById('btn-nav-inicio').style.display = 'block';
     } else {
@@ -463,7 +464,22 @@
   function cargarComandasAbiertas(silencioso = false) {
     if(!silencioso) cambiarVista('lista', 'Mesas Activas');
     
-    // FILTRO PARA QUE MESEROS VEAN SOLO LAS SUYAS, CAJEROS TODAS
+    // NUEVO: Fuerza una sincronización profunda para que el cajero vea las mesas nuevas
+    if(!silencioso) {
+      llamarBackend('sincronizarFondo').then(sync => {
+        if(sync) {
+          cacheMesas = sync.mesas.filter(m => !mesasCerradasEnSesion.includes(String(m.id)));
+          cacheDetalles = sync.detalles;
+          actualizarSugerenciasMesas();
+          renderizarComandasEnPantalla();
+        }
+      });
+    } else {
+      renderizarComandasEnPantalla();
+    }
+  }
+
+  function renderizarComandasEnPantalla() {
     let listaFiltrada = cacheMesas;
     if(usuarioActual.rol.toLowerCase() !== 'cajero') {
       listaFiltrada = cacheMesas.filter(m => m.encargado === usuarioActual.nombre);
@@ -578,7 +594,6 @@
   function cargarComandasCerradas() {
     cambiarVista('cerradas', 'Historial Pagadas');
     
-    // FILTRO PARA QUE MESEROS VEAN SOLO LAS SUYAS
     let listaFiltrada = cacheCerradas;
     if(usuarioActual.rol.toLowerCase() !== 'cajero') {
       listaFiltrada = cacheCerradas.filter(c => c.encargado === usuarioActual.nombre);
@@ -609,9 +624,9 @@
     });
   }
 
-  // --- LOGICA DE CAJA (NUEVO) ---
+  // --- LOGICA DE CAJA ACTUALIZADA ---
   function guardarMovimientoCaja(tipo) {
-    let fecha = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    let fecha = new Date().toISOString().split('T')[0];
     let caja = (tipo === 'Base') ? document.getElementById('sel-caja-base').value : document.getElementById('sel-caja-gasto').value;
     let montoRaw = (tipo === 'Base') ? document.getElementById('in-base').value : document.getElementById('in-gasto-monto').value;
     let monto = Number(montoRaw.replace(/\D/g, ''));
@@ -621,13 +636,39 @@
     if(monto <= 0) return mostrarAlerta("Error", "Ingresa un monto válido.");
     if(tipo === 'Gasto' && !concepto) return mostrarAlerta("Error", "Escribe el concepto del gasto.");
 
+    // NUEVO: Verificación antes de guardar
+    llamarBackend('hacerCierre', {fecha: fecha, caja: caja}).then(res => {
+      if(tipo === 'Base') {
+        // Prevenir bases múltiples
+        if(res.base > 0) {
+          mostrarAlerta("Atención", "Ya existe una base registrada para esta caja hoy.");
+        } else {
+          ejecutarGuardadoCaja(fecha, caja, tipo, concepto, monto);
+        }
+      } else if (tipo === 'Gasto') {
+        // Prevenir gastos que superen el efectivo
+        if(monto > res.efectivoEsperado) {
+          tempGastoCaja = caja; tempGastoConcepto = concepto; tempGastoMonto = monto;
+          document.getElementById('gasto-exceso-mensaje').innerText = `Estás intentando gastar $${monto.toLocaleString('es-CO')}, pero el efectivo esperado en caja es de solo $${res.efectivoEsperado.toLocaleString('es-CO')}.`;
+          document.getElementById('modal-gasto-exceso').style.display = 'flex';
+        } else {
+          ejecutarGuardadoCaja(fecha, caja, tipo, concepto, monto);
+        }
+      }
+    });
+  }
+
+  function forzarGasto() {
+    let fecha = new Date().toISOString().split('T')[0];
+    document.getElementById('modal-gasto-exceso').style.display = 'none';
+    ejecutarGuardadoCaja(fecha, tempGastoCaja, 'Gasto', tempGastoConcepto, tempGastoMonto);
+  }
+
+  function ejecutarGuardadoCaja(fecha, caja, tipo, concepto, monto) {
     mostrarAlerta("Éxito", `${tipo} registrado correctamente.`, "success");
-    
-    // Limpiar campos
     document.getElementById('in-base').value = '';
     document.getElementById('in-gasto-concepto').value = '';
     document.getElementById('in-gasto-monto').value = '';
-
     llamarBackend('registrarMovCaja', {fecha: fecha, caja: caja, tipo: tipo, concepto: concepto, monto: monto});
   }
 
