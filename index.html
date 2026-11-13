@@ -10,7 +10,6 @@
   <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1046/1046784.png">
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- Requerido para el menú lateral (Offcanvas) -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
   <style>
@@ -19,11 +18,9 @@
     .vista.activa { display: block; }
     button { touch-action: manipulation; } 
     
-    /* NAV SUPERIOR FIJO */
-    .navbar-top { position: fixed; top: 0; width: 100%; z-index: 1030; background: #0d6efd; color: white; height: 60px; display: none; align-items: center; padding: 0 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .navbar-top { position: fixed; top: 0; width: 100%; z-index: 1030; background: #0d6efd; color: white; height: 60px; display: none; justify-content: space-between; align-items: center; padding: 0 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
     .btn-hamburguesa { font-size: 24px; color: white; background: none; border: none; padding: 0; margin-right: 15px;}
     
-    /* BOTON FLOTANTE NUEVA MESA */
     .btn-flotante-add { position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; border-radius: 50%; background: #198754; color: white; font-size: 30px; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); z-index: 99; cursor: pointer;}
     
     .btn-producto { height: 75px; font-weight: bold; font-size: 14px; line-height: 1.1; padding: 5px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
@@ -64,6 +61,8 @@
       <button class="btn-hamburguesa" data-bs-toggle="offcanvas" data-bs-target="#menuLateral">☰</button>
       <h4 class="m-0 fw-bold" id="nav-titulo">Mesas Activas</h4>
     </div>
+    <!-- NUEVO: Botón de Inicio Rápido en el NavBar (Visible solo cuando sea necesario) -->
+    <button class="btn btn-light btn-sm fw-bold shadow-sm" id="btn-nav-inicio" onclick="cargarComandasAbiertas()" style="display:none;">🏠 Inicio</button>
   </div>
 
   <!-- MENÚ LATERAL (OFFCANVAS) -->
@@ -73,7 +72,7 @@
       <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
     </div>
     <div class="offcanvas-body p-0">
-      <a class="menu-item" onclick="cambiarVista('lista', 'Mesas Activas')" data-bs-dismiss="offcanvas">🏠 Dashboard Mesas</a>
+      <a class="menu-item" onclick="cargarComandasAbiertas()" data-bs-dismiss="offcanvas">🏠 Dashboard Mesas</a>
       
       <!-- EXCLUSIVOS CAJERO -->
       <a class="menu-item text-warning" id="btn-menu-venta-rapida" onclick="iniciarVentaRapida()" data-bs-dismiss="offcanvas" style="display:none;">⚡ Venta Rápida</a>
@@ -194,8 +193,8 @@
   <!-- VISTA DENTRO DE LA MESA -->
   <div id="vista-detalle" class="vista">
     <div class="header-vista px-3">
-      <h4 id="titulo-comanda" class="m-0 fw-bold text-primary">Mesa</h4>
-      <div class="d-flex gap-2">
+      <h4 id="titulo-comanda" class="m-0 fw-bold text-primary" style="display:none;">Mesa</h4> <!-- Oculto porque el título va arriba ahora -->
+      <div class="d-flex gap-2 w-100 justify-content-end">
         <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="mostrarPreCuenta()">🧾 Cuenta</button>
       </div>
     </div>
@@ -283,7 +282,7 @@
   </div>
 
 <script>
-  // ¡ATENCIÓN! Pega tu URL de Apps Script
+  // ¡ATENCIÓN! Asegúrate de dejar TU URL aquí:
   const API_URL = "https://script.google.com/macros/s/AKfycbxL629Jw9KzpkM6e045uuDLvtv1eSC4kZMqhRW6qpdmU_IW7AIkLkDDwakBK721J0TR/exec"; 
 
   async function llamarBackend(action, data = {}) {
@@ -433,6 +432,13 @@
     document.getElementById('panel-cobro').style.display = (id === 'detalle') ? 'flex' : 'none';
     if(tituloNav !== "") document.getElementById('nav-titulo').innerText = tituloNav;
     if(id === 'nueva') document.getElementById('label-encargado-nueva').innerText = usuarioActual.nombre;
+
+    // Mostrar u ocultar el botón de Inicio Rápido en la navbar
+    if(id !== 'lista' && id !== 'login') {
+      document.getElementById('btn-nav-inicio').style.display = 'block';
+    } else {
+      document.getElementById('btn-nav-inicio').style.display = 'none';
+    }
   }
 
   function crearComanda() {
@@ -456,8 +462,12 @@
 
   function cargarComandasAbiertas(silencioso = false) {
     if(!silencioso) cambiarVista('lista', 'Mesas Activas');
+    
+    // FILTRO PARA QUE MESEROS VEAN SOLO LAS SUYAS, CAJEROS TODAS
     let listaFiltrada = cacheMesas;
-    if(usuarioActual.rol.toLowerCase() !== 'cajero') listaFiltrada = cacheMesas.filter(m => m.encargado === usuarioActual.nombre);
+    if(usuarioActual.rol.toLowerCase() !== 'cajero') {
+      listaFiltrada = cacheMesas.filter(m => m.encargado === usuarioActual.nombre);
+    }
 
     if(listaFiltrada.length === 0) { document.getElementById('contenedor-comandas').innerHTML = '<p class="text-center mt-4 text-muted">No hay mesas activas.</p>'; return; }
     let html = '';
@@ -567,10 +577,14 @@
 
   function cargarComandasCerradas() {
     cambiarVista('cerradas', 'Historial Pagadas');
+    
+    // FILTRO PARA QUE MESEROS VEAN SOLO LAS SUYAS
     let listaFiltrada = cacheCerradas;
-    if(usuarioActual.rol.toLowerCase() !== 'cajero') listaFiltrada = cacheCerradas.filter(c => c.encargado === usuarioActual.nombre);
+    if(usuarioActual.rol.toLowerCase() !== 'cajero') {
+      listaFiltrada = cacheCerradas.filter(c => c.encargado === usuarioActual.nombre);
+    }
 
-    if(listaFiltrada.length === 0) { document.getElementById('contenedor-cerradas').innerHTML = '<p class="text-center mt-4 text-muted">No hay facturas hoy.</p>'; return; }
+    if(listaFiltrada.length === 0) { document.getElementById('contenedor-cerradas').innerHTML = '<p class="text-center mt-4 text-muted">No hay facturas en tu historial hoy.</p>'; return; }
     let html = '';
     listaFiltrada.forEach(c => {
       html += `<div class="card p-3 mb-2 shadow-sm border-start border-success border-4">
