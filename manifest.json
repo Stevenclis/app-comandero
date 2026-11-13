@@ -1,0 +1,15 @@
+{
+  "name": "Comandero POS",
+  "short_name": "Comandero",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f0f2f5",
+  "theme_color": "#0d6efd",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/1046/1046784.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
