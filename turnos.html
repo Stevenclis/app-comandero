@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+  <title>Reloj de Turnos y Nómina - Altamira</title>
+  <link rel="icon" href="logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-body: #0b0f19;
+      --bg-card: #111827;
+      --bg-input: #1f2937;
+      --border-color: #374151;
+      --text-main: #f8fafc;
+      --text-muted: #9ca3af;
+      --gold-main: #d4af37;
+      --gold-hover: #b58500;
+      --shadow-color: rgba(0,0,0,0.5);
+    }
+
+    body {
+      background-color: var(--bg-body);
+      font-family: 'Inter', sans-serif;
+      color: var(--text-main);
+      padding-top: 68px;
+      padding-bottom: 40px;
+      user-select: none;
+    }
+
+    .navbar-top {
+      position: fixed; top: 0; width: 100%; z-index: 1030;
+      background: var(--bg-card); border-bottom: 1px solid var(--gold-main);
+      height: 60px; display: flex; justify-content: space-between;
+      align-items: center; padding: 0 15px; box-shadow: 0 4px 10px var(--shadow-color);
+    }
+
+    .vista { display: none; }
+    .vista.activa { display: block; }
+
+    .reloj-digital {
+      font-size: 38px; font-weight: 800; letter-spacing: 2px;
+      color: var(--gold-main); line-height: 1.1;
+    }
+
+    .pin-display {
+      font-size: 38px; letter-spacing: 16px; font-weight: bold;
+      text-align: center; height: 56px; line-height: 56px;
+      border-bottom: 2px solid var(--gold-main); margin: 15px auto 22px auto;
+      max-width: 280px; color: var(--gold-main);
+    }
+
+    .teclado-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 12px; max-width: 360px; margin: 0 auto; width: 100%;
+    }
+
+    .btn-tecla {
+      height: 72px; font-size: 30px; font-weight: bold; border-radius: 14px;
+      background: var(--bg-input); border: 2px solid var(--gold-main);
+      color: var(--gold-main); box-shadow: 0 4px 10px var(--shadow-color);
+      display: flex; justify-content: center; align-items: center; touch-action: manipulation;
+    }
+    .btn-tecla:active { background: var(--gold-main); color: #ffffff; transform: scale(0.95); }
+
+    .btn-accion-turno {
+      height: 85px; font-size: 20px; font-weight: 800; border-radius: 16px;
+      letter-spacing: 0.5px; transition: all 0.2s; touch-action: manipulation;
+    }
+    .btn-accion-turno:disabled {
+      background: #1f2937 !important;
+      border: 1px solid #374151 !important;
+      color: #6b7280 !important;
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .card { background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 14px; }
+    .form-control, .form-select { background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main); }
+    .form-control:focus, .form-select:focus { background: var(--bg-input); color: var(--text-main); border-color: var(--gold-main); box-shadow: none; }
+    .text-gold { color: var(--gold-main) !important; }
+    .bg-input-theme { background: var(--bg-input) !important; border: 1px solid var(--border-color); }
+
+    .alerta-overlay {
+      position: fixed; top:0; left:0; width:100%; height:100%;
+      background:rgba(0,0,0,0.85); z-index:9999; display:none;
+      justify-content:center; align-items:center; padding: 15px;
+    }
+    .alerta-caja {
+      background: var(--bg-card); color: var(--text-main);
+      border: 1.5px solid var(--gold-main); padding: 22px; border-radius: 16px;
+      width: 100%; max-width: 410px; text-align: center;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.8); max-height: 92vh; overflow-y: auto;
+    }
+
+    #pantalla-carga {
+      position: fixed; top:0; left:0; width:100%; height:100%;
+      background:var(--bg-body); z-index:9000; display:flex;
+      flex-direction:column; justify-content:center; align-items:center;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="pantalla-carga">
+    <div class="spinner-border text-gold" style="width: 3rem; height: 3rem;" role="status"></div>
+    <h5 class="mt-3 text-gold fw-bold">Cargando Reloj de Turnos...</h5>
+  </div>
+
+  <!-- BARRA SUPERIOR -->
+  <div class="navbar-top">
+    <div class="d-flex align-items-center gap-2">
+      <img src="logo.png" alt="Altamira" style="width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--gold-main);">
+      <span class="fw-bold text-gold" id="nav-titulo">⏱️ Reloj de Turnos</span>
+    </div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-sm btn-outline-warning fw-bold" id="btn-abrir-admin" onclick="abrirLoginAdmin()">👑 Nómina</button>
+      <button class="btn btn-sm btn-secondary fw-bold" id="btn-volver-reloj" onclick="volverAlReloj()" style="display:none;">⏱️ Reloj</button>
+    </div>
+  </div>
+
+  <!-- ALERTA GLOBAL -->
+  <div id="alerta-modal" class="alerta-overlay" style="z-index: 10060;">
+    <div class="alerta-caja">
+      <div id="alerta-icono" style="font-size: 42px;" class="mb-2">✅</div>
+      <h4 id="alerta-titulo" class="fw-bold mb-2">Listo</h4>
+      <div id="alerta-mensaje" class="text-muted mb-4"></div>
+      <button class="btn btn-warning w-100 fw-bold py-2" onclick="cerrarAlerta()">Continuar</button>
+    </div>
+  </div>
+
+  <!-- MODAL LOGIN SUPERADMIN -->
+  <div id="modal-pin-admin" class="alerta-overlay">
+    <div class="alerta-caja">
+      <h4 class="fw-bold text-gold mb-1">👑 Acceso Superadmin</h4>
+      <p class="text-muted small mb-3">Ingresa el PIN de dueño para liquidar nómina o cambiar tarifas</p>
+      <input type="password" id="in-pin-admin" class="form-control form-control-lg text-center fw-bold mb-3" maxlength="4" inputmode="numeric" placeholder="••••" onkeyup="if(this.value.length===4) validarPinAdmin()">
+      <div class="d-flex gap-2">
+        <button class="btn btn-secondary w-50 fw-bold" onclick="document.getElementById('modal-pin-admin').style.display='none'">Cancelar</button>
+        <button class="btn btn-warning w-50 fw-bold" onclick="validarPinAdmin()">Entrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL EDITAR TURNO (SUPERADMIN) -->
+  <div id="modal-editar-turno" class="alerta-overlay">
+    <div class="alerta-caja text-start">
+      <h5 class="fw-bold text-gold mb-1">✏️ Ajustar Turno</h5>
+      <small class="text-muted d-block mb-3" id="et-info-emp"></small>
+      <input type="hidden" id="et-id">
+
+      <div class="row g-2 mb-2">
+        <div class="col-6">
+          <label class="small text-muted fw-bold">Hora Entrada</label>
+          <input type="time" id="et-entrada" class="form-control">
+        </div>
+        <div class="col-6">
+          <label class="small text-muted fw-bold">Hora Salida</label>
+          <input type="time" id="et-salida" class="form-control">
+        </div>
+      </div>
+
+      <div class="mb-2">
+        <label class="small text-muted fw-bold">Concepto / Tipo Turno</label>
+        <input type="text" id="et-tipo" class="form-control" placeholder="Ej. Medio Turno, Turno Completo...">
+      </div>
+
+      <div class="mb-3">
+        <label class="small text-muted fw-bold">Total a Pagar por este Turno ($)</label>
+        <input type="text" id="et-total" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+      </div>
+
+      <div class="d-flex gap-2">
+        <button class="btn btn-secondary w-50 fw-bold" onclick="document.getElementById('modal-editar-turno').style.display='none'">Cancelar</button>
+        <button class="btn btn-success w-50 fw-bold" onclick="guardarEdicionTurno()">Guardar Cambio</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- VISTA 1: KIOSKO DE MARCACIÓN EN CAJA (INICIAR / FINALIZAR CON CANDADO) -->
+  <!-- ===================================================================== -->
+  <div id="vista-reloj" class="vista activa container">
+    <div class="card p-3 mb-3 text-center">
+      <div class="reloj-digital" id="reloj-hora">00:00:00</div>
+      <div class="text-muted small mt-1" id="reloj-fecha">Cargando fecha...</div>
+      <div class="mt-2">
+        <span class="badge bg-warning text-dark px-3 py-1" id="badge-tipo-dia-hoy">Consultando calendario...</span>
+      </div>
+    </div>
+
+    <!-- PASO A: DIGITAR PIN -->
+    <div id="bloque-teclado-reloj" class="card p-3 mb-3 text-center">
+      <h6 class="fw-bold mb-0">Digita tu PIN de 4 números para marcar</h6>
+      <div class="pin-display" id="display-pin-reloj"></div>
+      <div class="teclado-grid">
+        <button class="btn-tecla" onclick="teclearPinReloj('1')">1</button>
+        <button class="btn-tecla" onclick="teclearPinReloj('2')">2</button>
+        <button class="btn-tecla" onclick="teclearPinReloj('3')">3</button>
+        <button class="btn-tecla" onclick="teclearPinReloj('4')">4</button>
+        <button class="btn-tecla" onclick="teclearPinReloj('5')">5</button>
+        <button class="btn-tecla" onclick="teclearPinReloj('6')">6</button>
+        <button class="btn-tecla" onclick="teclearPinReloj('7')">7</button>
+        <button class="btn-tecla" onclick="teclearPinReloj('8')">8</button>
+        <button class="btn-tecla" onclick="teclearPinReloj('9')">9</button>
+        <button class="btn-tecla text-danger" style="border-color:#ef4444;" onclick="borrarPinReloj()">⌫</button>
+        <button class="btn-tecla" onclick="teclearPinReloj('0')">0</button>
+        <button class="btn-tecla text-success" style="border-color:#10b981;" onclick="verificarEmpleadoReloj()">OK</button>
+      </div>
+    </div>
+
+    <!-- PASO B: BOTONES CON CANDADO SEGÚN ESTADO DEL EMPLEADO -->
+    <div id="bloque-accion-reloj" class="card p-3 mb-3 text-center" style="display:none; border: 1.5px solid var(--gold-main);">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="badge bg-secondary text-uppercase" id="emp-reloj-rol">Rol</span>
+        <button class="btn btn-sm btn-outline-secondary" onclick="cancelarSeleccionReloj()">✕ Cambiar PIN</button>
+      </div>
+      <h3 class="fw-bold text-gold mb-1" id="emp-reloj-nombre">Empleado</h3>
+      <p class="small mb-3" id="emp-reloj-estado-txt"></p>
+
+      <div class="d-grid gap-3">
+        <button id="btn-iniciar-turno" class="btn btn-success btn-accion-turno shadow" onclick="ejecutarIniciarTurno()">
+          🟢 INICIAR TURNO
+        </button>
+        <button id="btn-finalizar-turno" class="btn btn-danger btn-accion-turno shadow" onclick="ejecutarFinalizarTurno()">
+          🔴 FINALIZAR TURNO
+        </button>
+      </div>
+    </div>
+
+    <!-- PERSONAL EN TURNO EN TIEMPO REAL -->
+    <h6 class="text-muted fw-bold text-uppercase mb-2" style="font-size: 12px;">👥 Personal en Turno Ahora</h6>
+    <div id="lista-en-turno"></div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- VISTA 2: PANEL SUPERADMIN (NÓMINA LUNES + TARIFAS + FERIADOS COLOMBIA)  -->
+  <!-- ===================================================================== -->
+  <div id="vista-admin" class="vista container">
+    <ul class="nav nav-pills nav-fill mb-3 gap-1">
+      <li class="nav-item">
+        <button class="nav-link active fw-bold" id="tab-btn-nomina" onclick="cambiarTabAdmin('nomina')">💸 Liquidar Lunes</button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link fw-bold text-light" id="tab-btn-tarifas" onclick="cambiarTabAdmin('tarifas')">⚙️ Tarifas</button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link fw-bold text-light" id="tab-btn-feriados" onclick="cambiarTabAdmin('feriados')">📅 Feriados</button>
+      </li>
+    </ul>
+
+    <!-- SUB-VISTA A: LIQUIDACIÓN DE NÓMINA Y CRUCE CON PLANILLA DE CONSUMOS -->
+    <div id="subvista-nomina">
+      <div class="alert bg-input-theme small text-muted mb-3">
+        💡 Aquí ves los turnos acumulados sin pagar y se descuenta automáticamente lo que cada trabajador tenga anotado en <strong>Consumo Empleados</strong>.
+      </div>
+      <div id="contenedor-nomina-empleados"></div>
+    </div>
+
+    <!-- SUB-VISTA B: CONFIGURAR TARIFAS Y TOLERANCIA -->
+    <div id="subvista-tarifas" style="display:none;">
+      <div class="card p-3 mb-3">
+        <h6 class="fw-bold text-gold mb-3">🍽️ Tarifas Mesero y Cajero</h6>
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <label class="small text-muted">Medio Turno (Lun-Vie)</label>
+            <input type="text" id="t-mc-medio-sem" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+          <div class="col-6">
+            <label class="small text-muted">Turno Completo (Lun-Vie)</label>
+            <input type="text" id="t-mc-comp-sem" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+        </div>
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <label class="small text-muted">Medio Turno Sábado</label>
+            <input type="text" id="t-mc-medio-sab" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+          <div class="col-6">
+            <label class="small text-muted">Turno Completo Sábado</label>
+            <input type="text" id="t-mc-comp-sab" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+        </div>
+        <div class="row g-2">
+          <div class="col-6">
+            <label class="small text-muted">Medio Turno Dom/Festivo</label>
+            <input type="text" id="t-mc-medio-dom" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+          <div class="col-6">
+            <label class="small text-muted">Turno Completo Dom/Fest</label>
+            <input type="text" id="t-mc-comp-dom" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+        </div>
+      </div>
+
+      <div class="card p-3 mb-3">
+        <h6 class="fw-bold text-gold mb-3">👨‍🍳 Tarifas Cocina</h6>
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <label class="small text-muted">Medio Turno (Lun-Vie)</label>
+            <input type="text" id="t-coc-medio-sem" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+          <div class="col-6">
+            <label class="small text-muted">Turno Completo (Lun-Vie)</label>
+            <input type="text" id="t-coc-comp-sem" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+        </div>
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <label class="small text-muted">Medio Turno Sábado</label>
+            <input type="text" id="t-coc-medio-sab" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+          <div class="col-6">
+            <label class="small text-muted">Turno Completo Sábado</label>
+            <input type="text" id="t-coc-comp-sab" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+        </div>
+        <div class="row g-2">
+          <div class="col-6">
+            <label class="small text-muted">Medio Turno Dom/Festivo</label>
+            <input type="text" id="t-coc-medio-dom" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+          <div class="col-6">
+            <label class="small text-muted">Turno Completo Dom/Fest</label>
+            <input type="text" id="t-coc-comp-dom" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+        </div>
+      </div>
+
+      <div class="card p-3 mb-3">
+        <h6 class="fw-bold text-gold mb-3">⏱️ Horas Extra y Tolerancia</h6>
+        <div class="row g-2">
+          <div class="col-4">
+            <label class="small text-muted">Extra Lun-Vie ($)</label>
+            <input type="text" id="t-extra-sem" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+          <div class="col-4">
+            <label class="small text-muted">Extra Sáb/Dom/Fest</label>
+            <input type="text" id="t-extra-fin" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+          <div class="col-4">
+            <label class="small text-muted">Gracia (Minutos)</label>
+            <input type="number" id="t-tolerancia" class="form-control fw-bold text-center" min="0" max="59">
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-warning w-100 py-3 fw-bold shadow" id="btn-guardar-tarifas" onclick="guardarTarifasAdmin()">
+        💾 Guardar Nuevas Tarifas
+      </button>
+    </div>
+
+    <!-- SUB-VISTA C: FERIADOS COLOMBIA CALCULADOS AUTOMÁTICAMENTE -->
+    <div id="subvista-feriados" style="display:none;">
+      <div class="card p-3 mb-3">
+        <h6 class="fw-bold text-gold mb-2">🇨🇴 Feriados Oficiales de Colombia</h6>
+        <p class="small text-muted mb-3">Calculados automáticamente para cada año (Ley Emiliani y Semana Santa).</p>
+        <div id="lista-feriados-colombia"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const API_URL = "https://script.google.com/macros/s/AKfycbxL629Jw9KzpkM6e045uuDLvtv1eSC4kZMqhRW6qpdmU_IW7AIkLkDDwakBK721J0TR/exec";
+
+  let usuarios = [];
+  let turnos = [];
+  let tarifas = {};
+  let consumos = [];
+  let feriadosAnio = [];
+  let feriadosProximo = [];
+  let pinReloj = "";
+  let empleadoSeleccionado = null;
+  let timerResetReloj = null;
+
+  async function llamarBackend(action, data = {}) {
+    data.action = action;
+    try {
+      let res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(data)
+      });
+      return await res.json();
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  }
+
+  function actualizarRelojPantalla() {
+    const ahora = new Date();
+    document.getElementById('reloj-hora').innerText = ahora.toLocaleTimeString('es-CO', { hour12: false });
+    document.getElementById('reloj-fecha').innerText = ahora.toLocaleDateString('es-CO', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    });
+  }
+  setInterval(actualizarRelojPantalla, 1000);
+  actualizarRelojPantalla();
+
+  function cargarDatosIniciales() {
+    llamarBackend('obtenerDatosTurnos').then(res => {
+      document.getElementById('pantalla-carga').style.display = 'none';
+      if (!res || !res.ok) {
+        mostrarAlerta("Error", "No se pudo conectar con Google Sheets.", "❌");
+        return;
+      }
+      usuarios = res.usuarios || [];
+      turnos = res.turnos || [];
+      tarifas = res.tarifas || {};
+      consumos = res.consumos || [];
+      feriadosAnio = res.feriadosAnio || [];
+      feriadosProximo = res.feriadosProximo || [];
+
+      if (res.infoHoy) {
+        document.getElementById('badge-tipo-dia-hoy').innerText = "Hoy: " + res.infoHoy.etiqueta;
+      }
+      renderizarEnTurno();
+    });
+  }
+  cargarDatosIniciales();
+
+  function formatearMoneda(input) {
+    let val = input.value.replace(/\D/g, '');
+    if (val === '') val = '0';
+    input.value = Number(val).toLocaleString('es-CO');
+  }
+
+  function mostrarAlerta(titulo, htmlMsg, icono = "✅") {
+    document.getElementById('alerta-titulo').innerText = titulo;
+    document.getElementById('alerta-mensaje').innerHTML = htmlMsg;
+    document.getElementById('alerta-icono').innerText = icono;
+    document.getElementById('alerta-modal').style.display = 'flex';
+  }
+  function cerrarAlerta() {
+    document.getElementById('alerta-modal').style.display = 'none';
+  }
+
+  // =========================================================================
+  // LÓGICA DEL RELOJ EN CAJA
+  // =========================================================================
+
+  function teclearPinReloj(num) {
+    if (pinReloj.length < 4) pinReloj += num;
+    document.getElementById('display-pin-reloj').innerText = '●'.repeat(pinReloj.length);
+    if (pinReloj.length === 4) setTimeout(verificarEmpleadoReloj, 120);
+  }
+
+  function borrarPinReloj() {
+    pinReloj = pinReloj.slice(0, -1);
+    document.getElementById('display-pin-reloj').innerText = '●'.repeat(pinReloj.length);
+  }
+
+  function verificarEmpleadoReloj() {
+    if (pinReloj.length !== 4) return;
+    const user = usuarios.find(u => u.pin === pinReloj);
+    if (!user) {
+      pinReloj = "";
+      document.getElementById('display-pin-reloj').innerText = "";
+      return mostrarAlerta("PIN Inválido", "No existe ningún trabajador con ese PIN.", "❌");
+    }
+
+    empleadoSeleccionado = user;
+    const turnoAbierto = turnos.find(t => t.empleado.toLowerCase() === user.nombre.toLowerCase() && t.estado === 'Abierto');
+
+    document.getElementById('emp-reloj-nombre').innerText = "👤 " + user.nombre;
+    document.getElementById('emp-reloj-rol').innerText = user.rol;
+
+    const btnIniciar = document.getElementById('btn-iniciar-turno');
+    const btnFinalizar = document.getElementById('btn-finalizar-turno');
+    const txtEstado = document.getElementById('emp-reloj-estado-txt');
+
+    if (turnoAbierto) {
+      // Ya inició turno -> Bloquear Iniciar, Habilitar Finalizar
+      btnIniciar.disabled = true;
+      btnFinalizar.disabled = false;
+      txtEstado.innerHTML = `<span class="text-success fw-bold">● En turno desde las ${turnoAbierto.horaEntrada}</span>`;
+    } else {
+      // No ha iniciado turno -> Habilitar Iniciar, Bloquear Finalizar
+      btnIniciar.disabled = false;
+      btnFinalizar.disabled = true;
+      txtEstado.innerHTML = `<span class="text-muted">Actualmente fuera de turno</span>`;
+    }
+
+    document.getElementById('bloque-teclado-reloj').style.display = 'none';
+    document.getElementById('bloque-accion-reloj').style.display = 'block';
+  }
+
+  function cancelarSeleccionReloj() {
+    if (timerResetReloj) clearTimeout(timerResetReloj);
+    empleadoSeleccionado = null;
+    pinReloj = "";
+    document.getElementById('display-pin-reloj').innerText = "";
+    document.getElementById('bloque-accion-reloj').style.display = 'none';
+    document.getElementById('bloque-teclado-reloj').style.display = 'block';
+  }
+
+  function ejecutarIniciarTurno() {
+    if (!empleadoSeleccionado) return;
+    const btn = document.getElementById('btn-iniciar-turno');
+    btn.disabled = true; btn.innerText = "Registrando entrada...";
+
+    llamarBackend('marcarEntradaTurno', { pin: empleadoSeleccionado.pin }).then(res => {
+      btn.innerText = "🟢 INICIAR TURNO";
+      if (!res || !res.ok) {
+        cancelarSeleccionReloj();
+        return mostrarAlerta("Atención", (res && res.error) ? res.error : "Error al registrar entrada.", "❌");
+      }
+      turnos = res.turnos;
+      renderizarEnTurno();
+      const nombreEmp = empleadoSeleccionado.nombre;
+      cancelarSeleccionReloj();
+      mostrarAlerta("Turno Iniciado", `<strong>${nombreEmp}</strong><br>${res.mensaje}`, "🟢");
+    });
+  }
+
+  function ejecutarFinalizarTurno() {
+    if (!empleadoSeleccionado) return;
+    const btn = document.getElementById('btn-finalizar-turno');
+    btn.disabled = true; btn.innerText = "Calculando turno...";
+
+    llamarBackend('marcarSalidaTurno', { pin: empleadoSeleccionado.pin }).then(res => {
+      btn.innerText = "🔴 FINALIZAR TURNO";
+      if (!res || !res.ok) {
+        cancelarSeleccionReloj();
+        return mostrarAlerta("Atención", (res && res.error) ? res.error : "Error al registrar salida.", "❌");
+      }
+      turnos = res.turnos;
+      renderizarEnTurno();
+      cancelarSeleccionReloj();
+
+      const r = res.resumen;
+      const hrs = (r.minutosTotales / 60).toFixed(1);
+      const hrsExt = r.minutosExtra > 0 ? ` (+${(r.minutosExtra / 60).toFixed(1)}h extra)` : '';
+      mostrarAlerta(
+        "Turno Finalizado",
+        `<strong>${r.empleado}</strong><br>
+         ${r.horaEntrada} a ${r.horaSalida} (${hrs} hrs)<br>
+         Concepto: <strong>${r.tipoTurno}${hrsExt}</strong><br>
+         <span class="fs-5 text-success fw-bold">Generado: $${Number(r.totalPagar).toLocaleString('es-CO')}</span>`,
+        "🔴"
+      );
+    });
+  }
+
+  function renderizarEnTurno() {
+    const activos = turnos.filter(t => t.estado === 'Abierto');
+    const cont = document.getElementById('lista-en-turno');
+    if (activos.length === 0) {
+      cont.innerHTML = '<p class="text-center text-muted small py-3">Nadie tiene turno abierto en este momento.</p>';
+      return;
+    }
+    let html = '';
+    activos.forEach(t => {
+      html += `<div class="card p-2 px-3 mb-2">
+                 <div class="d-flex justify-content-between align-items-center">
+                   <div>
+                     <span class="fw-bold">🟢 ${t.empleado}</span>
+                     <small class="text-muted ms-1">(${t.rol})</small>
+                   </div>
+                   <span class="badge bg-success">Entró ${t.horaEntrada}</span>
+                 </div>
+               </div>`;
+    });
+    cont.innerHTML = html;
+  }
+
+  // =========================================================================
+  // PANEL SUPERADMIN: NÓMINA, CRUCE CON PLANILLA Y TARIFAS
+  // =========================================================================
+
+  function abrirLoginAdmin() {
+    document.getElementById('in-pin-admin').value = "";
+    document.getElementById('modal-pin-admin').style.display = 'flex';
+    setTimeout(() => document.getElementById('in-pin-admin').focus(), 100);
+  }
+
+  function validarPinAdmin() {
+    const pin = document.getElementById('in-pin-admin').value.trim();
+    const admin = usuarios.find(u => u.pin === pin && u.rol.toLowerCase().trim() === 'superadmin');
+    if (!admin) {
+      document.getElementById('in-pin-admin').value = "";
+      return mostrarAlerta("Acceso Denegado", "Solo el PIN del Superadmin puede entrar aquí.", "❌");
+    }
+    document.getElementById('modal-pin-admin').style.display = 'none';
+    document.getElementById('vista-reloj').classList.remove('activa');
+    document.getElementById('vista-admin').classList.add('activa');
+    document.getElementById('btn-abrir-admin').style.display = 'none';
+    document.getElementById('btn-volver-reloj').style.display = 'inline-block';
+    document.getElementById('nav-titulo').innerText = '👑 Nómina y Tarifas';
+
+    cargarDatosAdmin();
+  }
+
+  function volverAlReloj() {
+    document.getElementById('vista-admin').classList.remove('activa');
+    document.getElementById('vista-reloj').classList.add('activa');
+    document.getElementById('btn-volver-reloj').style.display = 'none';
+    document.getElementById('btn-abrir-admin').style.display = 'inline-block';
+    document.getElementById('nav-titulo').innerText = '⏱️ Reloj de Turnos';
+    cancelarSeleccionReloj();
+    renderizarEnTurno();
+  }
+
+  function cambiarTabAdmin(tab) {
+    ['nomina', 'tarifas', 'feriados'].forEach(t => {
+      document.getElementById('subvista-' + t).style.display = (t === tab) ? 'block' : 'none';
+      const btn = document.getElementById('tab-btn-' + t);
+      if (t === tab) {
+        btn.classList.add('active');
+        btn.classList.remove('text-light');
+      } else {
+        btn.classList.remove('active');
+        btn.classList.add('text-light');
+      }
+    });
+  }
+
+  function cargarDatosAdmin() {
+    llamarBackend('obtenerDatosTurnos').then(res => {
+      if (res && res.ok) {
+        usuarios = res.usuarios;
+        turnos = res.turnos;
+        tarifas = res.tarifas;
+        consumos = res.consumos;
+        feriadosAnio = res.feriadosAnio;
+        feriadosProximo = res.feriadosProximo;
+      }
+      renderizarNominaLunes();
+      cargarFormularioTarifas();
+      renderizarFeriados();
+    });
+  }
+
+  function renderizarNominaLunes() {
+    const cont = document.getElementById('contenedor-nomina-empleados');
+    // Agrupar todos los empleados que tengan turnos pendientes/abiertos O consumos en planilla
+    const nombresSet = new Set();
+    turnos.forEach(t => nombresSet.add(t.empleado));
+    consumos.forEach(c => nombresSet.add(c.empleado));
+
+    const listaEmps = Array.from(nombresSet).sort((a, b) => a.localeCompare(b));
+    if (listaEmps.length === 0) {
+      cont.innerHTML = '<p class="text-center text-muted mt-4">No hay turnos ni consumos pendientes por liquidar.</p>';
+      return;
+    }
+
+    let html = '';
+    listaEmps.forEach(emp => {
+      const turnosEmp = turnos.filter(t => t.empleado.toLowerCase() === emp.toLowerCase());
+      const consumosEmp = consumos.filter(c => c.empleado.toLowerCase() === emp.toLowerCase());
+
+      const totalTurnos = turnosEmp.reduce((acc, t) => acc + (t.estado === 'Pendiente' ? Number(t.totalPagar) : 0), 0);
+      const totalConsumos = consumosEmp.reduce((acc, c) => acc + Number(c.subtotal), 0);
+      const netoPagar = totalTurnos - totalConsumos;
+      const tieneAbierto = turnosEmp.some(t => t.estado === 'Abierto');
+
+      let htmlTurnos = '';
+      turnosEmp.forEach(t => {
+        const hrs = (t.minutosTotales / 60).toFixed(1);
+        const badgeEstado = t.estado === 'Abierto'
+          ? '<span class="badge bg-warning text-dark">En curso</span>'
+          : `<span class="text-success fw-bold">$${Number(t.totalPagar).toLocaleString('es-CO')}</span>`;
+        const extraTxt = t.minutosExtra > 0 ? ` • +${(t.minutosExtra/60).toFixed(1)}h extra` : '';
+
+        htmlTurnos += `<div class="d-flex justify-content-between align-items-center py-2 border-bottom" style="border-color: var(--border-color) !important;">
+                         <div class="small">
+                           <strong>${t.fecha}</strong> (${t.tipoDia})<br>
+                           <span class="text-muted">${t.horaEntrada} - ${t.horaSalida || '...'} (${hrs}h • ${t.tipoTurno}${extraTxt})</span>
+                         </div>
+                         <div class="d-flex align-items-center gap-1">
+                           ${badgeEstado}
+                           <button class="btn btn-sm btn-outline-primary px-2 py-0" onclick="abrirEditarTurno('${t.id}')">✏️</button>
+                           <button class="btn btn-sm btn-outline-danger px-2 py-0" onclick="eliminarTurno('${t.id}')">🗑️</button>
+                         </div>
+                       </div>`;
+      });
+
+      let htmlConsumos = '';
+      if (consumosEmp.length > 0) {
+        htmlConsumos = `<div class="mt-2 p-2 rounded bg-input-theme small">
+                          <div class="fw-bold text-warning mb-1">🍔 Consumos en Planilla (-$${totalConsumos.toLocaleString('es-CO')}):</div>`;
+        consumosEmp.forEach(c => {
+          htmlConsumos += `<div class="d-flex justify-content-between text-muted">
+                             <span>${c.cantidad}x ${c.producto} (${c.fecha})</span>
+                             <span>-$${Number(c.subtotal).toLocaleString('es-CO')}</span>
+                           </div>`;
+        });
+        htmlConsumos += `</div>`;
+      }
+
+      const empEsc = emp.replace(/'/g, "\\'");
+      const colorNeto = netoPagar >= 0 ? 'text-success' : 'text-danger';
+
+      html += `<div class="card p-3 mb-3 shadow-sm" style="border-left: 4px solid var(--gold-main);">
+                 <div class="d-flex justify-content-between align-items-center mb-2">
+                   <h5 class="fw-bold text-gold m-0">👤 ${emp}</h5>
+                   <span class="badge bg-dark border border-secondary">${turnosEmp.length} turno(s)</span>
+                 </div>
+
+                 ${htmlTurnos || '<p class="small text-muted mb-2">Sin turnos registrados esta semana.</p>'}
+                 ${htmlConsumos}
+
+                 <div class="mt-3 pt-2 border-top" style="border-color: var(--border-color) !important;">
+                   <div class="d-flex justify-content-between small text-muted">
+                     <span>Total Ganado Turnos:</span>
+                     <span class="text-light fw-bold">$${totalTurnos.toLocaleString('es-CO')}</span>
+                   </div>
+                   <div class="d-flex justify-content-between small text-muted">
+                     <span>Descuento Planilla Consumos:</span>
+                     <span class="text-danger fw-bold">-$${totalConsumos.toLocaleString('es-CO')}</span>
+                   </div>
+                   <div class="d-flex justify-content-between align-items-center mt-1">
+                     <span class="fw-bold">NETO A PAGAR:</span>
+                     <h4 class="fw-bold ${colorNeto} m-0">$${netoPagar.toLocaleString('es-CO')}</h4>
+                   </div>
+                 </div>
+
+                 ${tieneAbierto ? '<div class="text-warning small mt-2">⚠️ Tiene un turno abierto en curso; ciérralo antes de liquidar.</div>' : ''}
+
+                 <button class="btn btn-success w-100 fw-bold py-2 mt-3" ${tieneAbierto ? 'disabled' : ''} onclick="liquidarSemanaEmpleado('${empEsc}', ${netoPagar}, ${totalConsumos})">
+                   ✅ Pagar Nómina y Limpiar Planilla
+                 </button>
+               </div>`;
+    });
+
+    cont.innerHTML = html;
+  }
+
+  function abrirEditarTurno(id) {
+    const t = turnos.find(x => x.id === id);
+    if (!t) return;
+    document.getElementById('et-id').value = t.id;
+    document.getElementById('et-info-emp').innerText = `${t.empleado} • ${t.fecha} (${t.tipoDia})`;
+    document.getElementById('et-entrada').value = t.horaEntrada || '09:00';
+    document.getElementById('et-salida').value = t.horaSalida || '15:00';
+    document.getElementById('et-tipo').value = t.tipoTurno === 'En curso' ? 'Medio Turno' : t.tipoTurno;
+    document.getElementById('et-total').value = Number(t.totalPagar || 0).toLocaleString('es-CO');
+    document.getElementById('modal-editar-turno').style.display = 'flex';
+  }
+
+  function guardarEdicionTurno() {
+    const id = document.getElementById('et-id').value;
+    const hIn = document.getElementById('et-entrada').value;
+    const hOut = document.getElementById('et-salida').value;
+    const tipo = document.getElementById('et-tipo').value.trim() || 'Turno Ajustado';
+    const total = Number(document.getElementById('et-total').value.replace(/\D/g, ''));
+
+    if (!hIn || !hOut) return;
+    document.getElementById('modal-editar-turno').style.display = 'none';
+
+    llamarBackend('editarTurnoAdmin', { id: id, horaEntrada: hIn, horaSalida: hOut, tipoTurno: tipo, total: total }).then(res => {
+      if (res && res.ok) {
+        turnos = res.turnos;
+        renderizarNominaLunes();
+        mostrarAlerta("Turno Actualizado", "Los valores del turno fueron recalculados.", "✅");
+      }
+    });
+  }
+
+  function eliminarTurno(id) {
+    if (!confirm("¿Seguro que deseas borrar este turno?")) return;
+    llamarBackend('eliminarTurnoAdmin', { id: id }).then(res => {
+      if (res && res.ok) {
+        turnos = res.turnos;
+        renderizarNominaLunes();
+      }
+    });
+  }
+
+  function liquidarSemanaEmpleado(empleado, neto, totalConsumos) {
+    const msg = totalConsumos > 0
+      ? `¿Confirmas el pago de $${neto.toLocaleString('es-CO')} a ${empleado}? Sus turnos pasarán a Pagados y su planilla de consumos ($${totalConsumos.toLocaleString('es-CO')}) se borrará quedando en $0.`
+      : `¿Confirmas el pago de $${neto.toLocaleString('es-CO')} a ${empleado}? Sus turnos pasarán a Pagados.`;
+
+    if (!confirm(msg)) return;
+
+    llamarBackend('liquidarNominaEmpleado', { empleado: empleado, descontarPlanilla: true }).then(res => {
+      if (res && res.ok) {
+        turnos = res.turnos;
+        consumos = res.consumos;
+        renderizarNominaLunes();
+        mostrarAlerta("Nómina Liquidada", `La cuenta y planilla de <strong>${empleado}</strong> quedaron al día en $0.`, "✅");
+      }
+    });
+  }
+
+  function cargarFormularioTarifas() {
+    document.getElementById('t-mc-medio-sem').value = Number(tarifas.mc_medio_sem || 25000).toLocaleString('es-CO');
+    document.getElementById('t-mc-comp-sem').value = Number(tarifas.mc_comp_sem || 60000).toLocaleString('es-CO');
+    document.getElementById('t-mc-medio-sab').value = Number(tarifas.mc_medio_sab || 30000).toLocaleString('es-CO');
+    document.getElementById('t-mc-comp-sab').value = Number(tarifas.mc_comp_sab || 60000).toLocaleString('es-CO');
+    document.getElementById('t-mc-medio-dom').value = Number(tarifas.mc_medio_dom || 40000).toLocaleString('es-CO');
+    document.getElementById('t-mc-comp-dom').value = Number(tarifas.mc_comp_dom || 80000).toLocaleString('es-CO');
+
+    document.getElementById('t-coc-medio-sem').value = Number(tarifas.coc_medio_sem || 30000).toLocaleString('es-CO');
+    document.getElementById('t-coc-comp-sem').value = Number(tarifas.coc_comp_sem || 70000).toLocaleString('es-CO');
+    document.getElementById('t-coc-medio-sab').value = Number(tarifas.coc_medio_sab || 40000).toLocaleString('es-CO');
+    document.getElementById('t-coc-comp-sab').value = Number(tarifas.coc_comp_sab || 80000).toLocaleString('es-CO');
+    document.getElementById('t-coc-medio-dom').value = Number(tarifas.coc_medio_dom || 50000).toLocaleString('es-CO');
+    document.getElementById('t-coc-comp-dom').value = Number(tarifas.coc_comp_dom || 100000).toLocaleString('es-CO');
+
+    document.getElementById('t-extra-sem').value = Number(tarifas.extra_sem || 5000).toLocaleString('es-CO');
+    document.getElementById('t-extra-fin').value = Number(tarifas.extra_fin || 7000).toLocaleString('es-CO');
+    document.getElementById('t-tolerancia').value = Number(tarifas.tolerancia_min || 15);
+  }
+
+  function guardarTarifasAdmin() {
+    const num = (id) => Number(document.getElementById(id).value.replace(/\D/g, ''));
+    const nuevas = {
+      mc_medio_sem: num('t-mc-medio-sem'),
+      mc_comp_sem: num('t-mc-comp-sem'),
+      mc_medio_sab: num('t-mc-medio-sab'),
+      mc_comp_sab: num('t-mc-comp-sab'),
+      mc_medio_dom: num('t-mc-medio-dom'),
+      mc_comp_dom: num('t-mc-comp-dom'),
+      coc_medio_sem: num('t-coc-medio-sem'),
+      coc_comp_sem: num('t-coc-comp-sem'),
+      coc_medio_sab: num('t-coc-medio-sab'),
+      coc_comp_sab: num('t-coc-comp-sab'),
+      coc_medio_dom: num('t-coc-medio-dom'),
+      coc_comp_dom: num('t-coc-comp-dom'),
+      extra_sem: num('t-extra-sem'),
+      extra_fin: num('t-extra-fin'),
+      tolerancia_min: Number(document.getElementById('t-tolerancia').value || 15)
+    };
+
+    const btn = document.getElementById('btn-guardar-tarifas');
+    btn.disabled = true; btn.innerText = "Guardando...";
+
+    llamarBackend('guardarTarifasNomina', { tarifas: nuevas }).then(res => {
+      btn.disabled = false; btn.innerText = "💾 Guardar Nuevas Tarifas";
+      if (res && res.ok) {
+        tarifas = res.tarifas;
+        mostrarAlerta("Tarifas Guardadas", "Los nuevos valores aplicarán para todos los próximos turnos.", "✅");
+      }
+    });
+  }
+
+  function renderizarFeriados() {
+    const cont = document.getElementById('lista-feriados-colombia');
+    let html = '<h6 class="text-warning fw-bold mt-2">Año Actual</h6>';
+    feriadosAnio.forEach(f => {
+      html += `<div class="d-flex justify-content-between py-1 border-bottom small" style="border-color: var(--border-color) !important;">
+                 <span>${f.nombre}</span>
+                 <span class="text-gold fw-bold">${f.fecha}</span>
+               </div>`;
+    });
+    html += '<h6 class="text-warning fw-bold mt-3">Próximo Año</h6>';
+    feriadosProximo.forEach(f => {
+      html += `<div class="d-flex justify-content-between py-1 border-bottom small" style="border-color: var(--border-color) !important;">
+                 <span>${f.nombre}</span>
+                 <span class="text-gold fw-bold">${f.fecha}</span>
+               </div>`;
+    });
+    cont.innerHTML = html;
+  }
+</script>
+</body>
+</html>
