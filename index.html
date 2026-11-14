@@ -1338,6 +1338,14 @@
     if(miPin.length === 4) setTimeout(validarLogin, 100);
   }
   function borrarPin() { miPin = miPin.slice(0, -1); document.getElementById('display-pin').innerText = '●'.repeat(miPin.length); }
+  document.addEventListener('keydown', function(e) {
+    const vistaLogin = document.getElementById('vista-login');
+    if (vistaLogin && vistaLogin.classList.contains('activa')) {
+      if (e.key >= '0' && e.key <= '9') teclearPin(e.key);
+      if (e.key === 'Backspace') borrarPin();
+      if (e.key === 'Enter') validarLogin();
+    }
+  });
 
   function validarLogin() {
     let user = listaUsuarios.find(u => u.pin === miPin);
