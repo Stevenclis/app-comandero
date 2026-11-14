@@ -50,7 +50,7 @@ function obtenerTarifasNomina() {
   const defaults = {
     mc_medio_sem: 25000, mc_comp_sem: 60000, mc_medio_sab: 30000, mc_comp_sab: 60000, mc_medio_dom: 40000, mc_comp_dom: 80000,
     coc_medio_sem: 30000, coc_comp_sem: 70000, coc_medio_sab: 40000, coc_comp_sab: 80000, coc_medio_dom: 50000, coc_comp_dom: 100000,
-    extra_sem: 5000, extra_fin: 7000, tolerancia_min: 15
+    extra_sem: 5000, extra_fin: 7000, extra_coc_dom: 8000, tolerancia_min: 15
   };
   let tarifas = {};
   for (let k in defaults) {
@@ -116,9 +116,12 @@ function calcularPagoTurno(rol, codigoDia, horaEntradaStr, minutosTotales, tarif
   const esCocina = rol.toLowerCase().includes('cocina');
   const prefijo = esCocina ? 'coc' : 'mc';
   let sufijo = 'sem', tarifaExtra = Number(tarifas.extra_sem || 5000);
-  
-  if (codigoDia === 'SABADO') { sufijo = 'sab'; tarifaExtra = Number(tarifas.extra_fin || 7000); } 
-  else if (codigoDia === 'DOM_FEST') { sufijo = 'dom'; tarifaExtra = Number(tarifas.extra_fin || 7000); }
+
+  if (codigoDia === 'SABADO') { sufijo = 'sab'; } 
+  else if (codigoDia === 'DOM_FEST') { 
+    sufijo = 'dom'; 
+    tarifaExtra = esCocina ? Number(tarifas.extra_coc_dom || 8000) : Number(tarifas.extra_fin || 7000); 
+  }
 
   const tarifaMedio = Number(tarifas[`${prefijo}_medio_${sufijo}`] || 0);
   const tarifaCompleto = Number(tarifas[`${prefijo}_comp_${sufijo}`] || 0);
