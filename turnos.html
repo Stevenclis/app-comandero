@@ -118,13 +118,16 @@
     <h5 class="mt-3 text-gold fw-bold">Verificando Terminal...</h5>
   </div>
 
-  <!-- BARRA SUPERIOR SOLO INFORMATIVA -->
+<!-- BARRA SUPERIOR SOLO INFORMATIVA -->
   <div class="navbar-top">
     <div class="d-flex align-items-center gap-2">
       <img src="logo.png" alt="Altamira" style="width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--gold-main);">
-      <span class="fw-bold text-gold" id="nav-titulo">⏱️ Reloj de Turnos</span>
+      <span class="fw-bold text-gold" id="nav-titulo" style="font-size: 15px;">⏱️ Reloj</span>
     </div>
-    <span class="badge bg-dark border border-secondary text-muted" id="badge-terminal-estado">Control Asistencia</span>
+    <div class="d-flex align-items-center gap-2">
+      <button id="btn-instalar-app" class="btn btn-sm btn-success fw-bold shadow" style="display:none;" onclick="instalarApp()">⬇️ Instalar</button>
+      <span class="badge bg-dark border border-secondary text-muted" id="badge-terminal-estado">Asistencia</span>
+    </div>
   </div>
 
   <!-- ALERTA GLOBAL -->
