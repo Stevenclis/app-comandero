@@ -54,6 +54,10 @@
     
     .btn-flotante-add { position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(145deg, var(--gold-main), var(--gold-hover)); color: #ffffff; font-size: 30px; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4); z-index: 99; cursor: pointer;}
     
+    /* BOTONES DE CATEGORÍA Y PRODUCTO */
+    .btn-categoria { height: 74px; font-weight: 700; font-size: 15px; line-height: 1.2; padding: 10px; display: flex; flex-direction: column; justify-content: center; align-items: center; background: var(--bg-card); border: 1.5px solid var(--gold-main); color: var(--text-main); border-radius: 14px; box-shadow: 0 3px 8px var(--shadow-color); transition: transform 0.1s; }
+    .btn-categoria:active { transform: scale(0.96); background: var(--gold-main); color: #ffffff; }
+
     .btn-producto { height: 75px; font-weight: bold; font-size: 14px; line-height: 1.1; padding: 5px; display: flex; flex-direction: column; justify-content: center; align-items: center; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 12px;}
     .panel-flotante { position: fixed; bottom: 0; left: 0; width: 100%; background: var(--bg-card); border-top: 1px solid var(--gold-main); box-shadow: 0 -4px 15px var(--shadow-color); padding: 10px 15px; z-index: 100; display: flex; justify-content: space-between; align-items: center; }
     .lista-comanda { max-height: 35vh; overflow-y: auto; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 12px; padding: 10px; color: var(--text-main);}
@@ -134,7 +138,7 @@
   <div class="navbar-top" id="navbar-top">
     <div class="d-flex align-items-center">
       <button class="btn-hamburguesa" data-bs-toggle="offcanvas" data-bs-target="#menuLateral">☰</button>
-      <h4 class="m-0 fw-bold text-primary-theme text-truncate" id="nav-titulo" style="max-width: 160px;">Mesas Activas</h4>
+      <h4 class="m-0 fw-bold text-primary-theme" id="nav-titulo">Mesas Activas</h4>
     </div>
     
     <div class="d-flex align-items-center gap-2">
@@ -286,7 +290,7 @@
       <div id="tabla-detalles" class="text-muted text-center mt-2">Cargando...</div>
     </div>
     <div class="px-3">
-      <input type="text" id="buscador-prod" class="form-control mb-2" placeholder="🔍 Buscar producto..." onkeyup="filtrarProductos()">
+      <input type="text" id="buscador-prod" class="form-control mb-2" placeholder="🔍 Buscar producto en toda la carta..." onkeyup="filtrarProductos()">
       <div class="row g-2" id="contenedor-productos"></div>
     </div>
     <div class="panel-flotante" id="panel-cobro" style="display: none;">
@@ -405,12 +409,10 @@
 
   let cacheMesas = [], cacheDetalles = {}, cacheCerradas = [], catalogo = [], listaUsuarios = [];
   let idActual = null, totalActual = 0, usuarioActual = null, miPin = "";
-  
-  // NUEVO: Arreglo de lista negra para evitar el parpadeo de mesas fantasmas
   let mesasCerradasEnSesion = [], mesasSeleccionadasUI = [], mesasEliminadasEnSesion = []; 
-  
   let prodTempNombre = "", prodTempPrecio = 0, prodTempCant = 1;
   let tempGastoCaja = "", tempGastoConcepto = "", tempGastoMonto = 0;
+  let categoriaActual = null; // Controla si estamos viendo carpetas o productos de una carpeta
 
   const arrayTodasLasMesas = [];
   for(let i=1; i<=40; i++) arrayTodasLasMesas.push("Mesa " + i);
@@ -419,7 +421,7 @@
   llamarBackend('obtenerCargaInicial').then(res => {
     if(!res) { document.getElementById('pantalla-carga').innerHTML = '<h4 class="mt-3 text-danger">Error Base de Datos</h4>'; return; }
     catalogo = res.productos; cacheMesas = res.sync.mesas; cacheDetalles = res.sync.detalles; cacheCerradas = res.sync.cerradas; listaUsuarios = res.usuarios; 
-    renderizarCatalogo(catalogo);
+    renderizarVistaProductos();
     let opCajas = '<option value="" disabled selected>Selecciona la Caja...</option>';
     res.cajas.forEach(c => opCajas += `<option value="${c}">${c}</option>`);
     document.getElementById('sel-caja').innerHTML = opCajas; document.getElementById('sel-caja-base').innerHTML = opCajas;
@@ -462,7 +464,7 @@
         let ref = document.getElementById('titulo-comanda').innerText;
         if (ref === "Venta Mostrador") {
           let idEliminar = String(idActual);
-          mesasEliminadasEnSesion.push(idEliminar); // Lista negra para ignorarla al sincronizar
+          mesasEliminadasEnSesion.push(idEliminar);
           cacheMesas = cacheMesas.filter(m => String(m.id) !== idEliminar);
           delete cacheDetalles[idEliminar];
           llamarBackend('eliminarComanda', {id: idEliminar});
@@ -478,11 +480,71 @@
     if (typeof accionCallback === 'function') accionCallback();
   }
 
-  function renderizarCatalogo(listaProds) {
-    let htmlProd = ''; listaProds.forEach(p => { htmlProd += `<div class="col-4"><button class="btn btn-outline-primary w-100 btn-producto shadow-sm" onclick="abrirModalCant('${p.nombre}', ${p.precio})"><span class="text-main-theme">${p.nombre}</span><span class="text-success">$${p.precio.toLocaleString('es-CO')}</span></button></div>`; });
-    document.getElementById('contenedor-productos').innerHTML = htmlProd;
+  // NAVEGACIÓN POR CATEGORÍAS Y BUSCADOR GLOBAL
+  function seleccionarCategoria(cat) {
+    categoriaActual = cat;
+    renderizarVistaProductos();
   }
-  function filtrarProductos() { let texto = document.getElementById('buscador-prod').value.toLowerCase(); renderizarCatalogo(catalogo.filter(p => p.nombre.toLowerCase().includes(texto))); }
+
+  function volverACategorias() {
+    categoriaActual = null;
+    document.getElementById('buscador-prod').value = "";
+    renderizarVistaProductos();
+  }
+
+  function filtrarProductos() {
+    renderizarVistaProductos();
+  }
+
+  function renderizarVistaProductos() {
+    let texto = document.getElementById('buscador-prod').value.toLowerCase().trim();
+    let contenedor = document.getElementById('contenedor-productos');
+    let html = '';
+
+    // 1. Si el mesero escribe en el buscador, filtra en toda la carta al instante
+    if (texto !== "") {
+      let filtrados = catalogo.filter(p => p.nombre.toLowerCase().includes(texto) || (p.categoria && p.categoria.toLowerCase().includes(texto)));
+      if (filtrados.length === 0) {
+        contenedor.innerHTML = '<p class="text-center text-muted mt-3">No se encontraron productos.</p>';
+        return;
+      }
+      filtrados.forEach(p => {
+        html += `<div class="col-4"><button class="btn btn-outline-primary w-100 btn-producto shadow-sm" onclick="abrirModalCant('${p.nombre}', ${p.precio})"><span class="text-main-theme">${p.nombre}</span><span class="text-success">$${p.precio.toLocaleString('es-CO')}</span></button></div>`;
+      });
+      contenedor.innerHTML = html;
+      return;
+    }
+
+    // 2. Si no hay categoría elegida, muestra los botones de Categorías
+    if (categoriaActual === null) {
+      let categoriasUnicas = [...new Set(catalogo.map(p => p.categoria || 'General'))];
+      categoriasUnicas.forEach(cat => {
+        let cantidadItems = catalogo.filter(p => (p.categoria || 'General') === cat).length;
+        html += `<div class="col-6">
+                   <button class="btn w-100 btn-categoria" onclick="seleccionarCategoria('${cat}')">
+                     <span class="text-primary-theme">${cat}</span>
+                     <small class="text-muted fw-normal" style="font-size: 11px;">${cantidadItems} opciones</small>
+                   </button>
+                 </div>`;
+      });
+      contenedor.innerHTML = html;
+      return;
+    }
+
+    // 3. Si eligió una categoría, muestra el botón para devolverse y los productos de esa sección
+    html += `<div class="col-12 mb-1">
+               <div class="d-flex justify-content-between align-items-center p-2 rounded bg-input-theme">
+                 <button class="btn btn-sm btn-primary fw-bold px-3" onclick="volverACategorias()">⬅️ Categorías</button>
+                 <span class="fw-bold text-primary-theme text-uppercase pe-2">${categoriaActual}</span>
+               </div>
+             </div>`;
+
+    let prodsCategoria = catalogo.filter(p => (p.categoria || 'General') === categoriaActual);
+    prodsCategoria.forEach(p => {
+      html += `<div class="col-4"><button class="btn btn-outline-primary w-100 btn-producto shadow-sm" onclick="abrirModalCant('${p.nombre}', ${p.precio})"><span class="text-main-theme">${p.nombre}</span><span class="text-success">$${p.precio.toLocaleString('es-CO')}</span></button></div>`;
+    });
+    contenedor.innerHTML = html;
+  }
 
   function actualizarSugerenciasMesas() {
     let ocupadas = cacheMesas.map(m => m.referencia); let ocupadasDesglosadas = [];
@@ -502,7 +564,6 @@
     if(usuarioActual === null) return;
     llamarBackend('sincronizarFondo').then(sync => {
       if(sync && idActual === null) {
-        // FILTRO MEJORADO: Ignorar mesas cobradas Y mesas eliminadas (fantasmas)
         cacheMesas = sync.mesas.filter(m => !mesasCerradasEnSesion.includes(String(m.id)) && !mesasEliminadasEnSesion.includes(String(m.id))); 
         cacheDetalles = sync.detalles;
         let idsRemotos = sync.cerradas.map(c => String(c.id)); let localesFaltantes = cacheCerradas.filter(c => mesasCerradasEnSesion.includes(String(c.id)) && !idsRemotos.includes(String(c.id)));
@@ -560,7 +621,6 @@
     
     llamarBackend('sincronizarFondo').then(sync => {
       if(sync) {
-        // FILTRO MEJORADO
         cacheMesas = sync.mesas.filter(m => !mesasCerradasEnSesion.includes(String(m.id)) && !mesasEliminadasEnSesion.includes(String(m.id))); 
         cacheDetalles = sync.detalles;
         actualizarSugerenciasMesas(); 
@@ -601,7 +661,8 @@
 
   function abrirMesa(id, referencia) {
     idActual = String(id); document.getElementById('titulo-comanda').innerText = referencia;
-    document.getElementById('buscador-prod').value = ""; renderizarCatalogo(catalogo);
+    categoriaActual = null;
+    document.getElementById('buscador-prod').value = ""; renderizarVistaProductos();
     cambiarVista('detalle', 'Mesa: ' + referencia); renderizarListaInstantanea();
   }
 
@@ -630,7 +691,7 @@
 
   function eliminarMesaVacia() {
     let idEliminar = String(idActual); 
-    mesasEliminadasEnSesion.push(idEliminar); // Lista negra
+    mesasEliminadasEnSesion.push(idEliminar);
     cacheMesas = cacheMesas.filter(m => String(m.id) !== idEliminar); 
     delete cacheDetalles[idEliminar];
     idActual = null; document.getElementById('modal-vacia').style.display = 'none';
