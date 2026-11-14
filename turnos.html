@@ -214,6 +214,25 @@
   const API_URL = "https://script.google.com/macros/s/AKfycbxL629Jw9KzpkM6e045uuDLvtv1eSC4kZMqhRW6qpdmU_IW7AIkLkDDwakBK721J0TR/exec";
   const KEY_TOKEN_TERMINAL = "altamira_terminal_token_v1";
 
+  let promptInstalacion;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    promptInstalacion = e;
+    document.getElementById('btn-instalar-app').style.display = 'block'; // Muestra el botón mágico
+  });
+
+  function instalarApp() {
+    if (promptInstalacion) {
+      promptInstalacion.prompt();
+      promptInstalacion.userChoice.then((choice) => {
+        if (choice.outcome === 'accepted') {
+          document.getElementById('btn-instalar-app').style.display = 'none';
+        }
+        promptInstalacion = null;
+      });
+    }
+  }
+
   let terminalAutorizada = false;
   let usuarios = [];
   let turnos = [];
