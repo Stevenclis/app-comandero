@@ -654,6 +654,53 @@
     </div>
     <div id="lista-resumen-consumos"></div>
   </div>
+  <!-- VISTA ADMIN: GESTIÓN DE CARTA -->
+  <div id="vista-carta" class="vista container" style="display:none;">
+    <div class="card shadow-sm mb-4 border-gold">
+      <div class="card-body">
+        <h5 class="fw-bold text-primary-theme mb-3">🍔 Agregar / Editar Producto</h5>
+        
+        <!-- ID oculto para saber si estamos editando o creando -->
+        <input type="hidden" id="prod-id" value="">
+        
+        <div class="mb-2">
+          <label class="small text-muted fw-bold">Nombre del Producto</label>
+          <input type="text" id="prod-nombre" class="form-control border-gold" placeholder="Ej. Hamburguesa, Mojito...">
+        </div>
+        
+        <div class="row g-2 mb-3">
+          <div class="col-6">
+            <label class="small text-muted fw-bold">Precio al Público ($)</label>
+            <input type="text" id="prod-precio" class="form-control fw-bold" placeholder="0" onkeyup="formatearMoneda(this)">
+          </div>
+          <div class="col-6">
+            <label class="small text-muted fw-bold">Categoría</label>
+            <select id="prod-categoria" class="form-select border-gold">
+              <option value="Restaurante">🍽️ Restaurante</option>
+              <option value="Bar">🍹 Bar / Licores</option>
+              <option value="Piscina">🏊 Piscina / Snacks</option>
+              <option value="Otros">📦 Otros</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="d-flex gap-2">
+          <button class="btn btn-primary fw-bold flex-grow-1" onclick="guardarProductoAdmin()">💾 Guardar Producto</button>
+          <button class="btn btn-outline-secondary fw-bold" onclick="limpiarFormProducto()">🧹 Limpiar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Buscador y Lista de Productos -->
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h6 class="text-muted fw-bold m-0 text-uppercase" style="font-size: 12px;">Productos en Carta</h6>
+      <input type="text" id="buscador-carta-admin" class="form-control form-control-sm w-50 border-gold" placeholder="🔍 Buscar producto..." oninput="filtrarListaCartaAdmin()">
+    </div>
+    
+    <div id="lista-productos-admin">
+      <!-- Aquí JavaScript dibuja los botones de Editar, Borrar y Agotado -->
+    </div>
+  </div>
 
   <!-- ========================================================= -->
   <!-- VISTA NÓMINA Y TURNOS (CAJERO PAGA / SUPERADMIN TOTAL)    -->
