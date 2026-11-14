@@ -32,6 +32,8 @@
       user-select: none;
     }
 
+    .text-muted { color: #9ca3af !important; }
+
     .navbar-top {
       position: fixed; top: 0; width: 100%; z-index: 1030;
       background: var(--bg-card); border-bottom: 1px solid var(--gold-main);
@@ -43,8 +45,15 @@
     .vista.activa { display: block; }
 
     .reloj-digital {
-      font-size: 38px; font-weight: 800; letter-spacing: 2px;
+      font-size: 34px; font-weight: 800; letter-spacing: 1px;
       color: var(--gold-main); line-height: 1.1;
+    }
+
+    .reloj-fecha-texto {
+      color: #e2e8f0;
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: capitalize;
     }
 
     .pin-display {
@@ -108,7 +117,7 @@
 
   <div id="pantalla-carga">
     <div class="spinner-border text-gold" style="width: 3rem; height: 3rem;" role="status"></div>
-    <h5 class="mt-3 text-gold fw-bold">Cargando Reloj de Turnos...</h5>
+    <h5 class="mt-3 text-gold fw-bold">Verificando Terminal...</h5>
   </div>
 
   <!-- BARRA SUPERIOR -->
@@ -182,12 +191,30 @@
   </div>
 
   <!-- ===================================================================== -->
+  <!-- VISTA 0: CANDADO DE TERMINAL NO AUTORIZADA                            -->
+  <!-- ===================================================================== -->
+  <div id="vista-bloqueo" class="vista container pt-4">
+    <div class="card p-4 text-center mx-auto" style="max-width: 410px; border: 1.5px solid #ef4444;">
+      <div style="font-size: 54px;" class="mb-2">🔒</div>
+      <h4 class="fw-bold text-danger mb-2">Terminal No Autorizada</h4>
+      <p class="small text-muted mb-4">
+        Este dispositivo no tiene permiso para marcar entradas o salidas. Si este es el equipo oficial de la <strong>Caja</strong>, ingresa el PIN de Superadmin para activarlo.
+      </p>
+
+      <input type="password" id="in-pin-autorizar" class="form-control form-control-lg text-center fw-bold mb-3" maxlength="4" inputmode="numeric" placeholder="PIN Superadmin (4 dígitos)" oninput="this.value=this.value.replace(/\D/g,'')">
+      <button class="btn btn-warning btn-lg w-100 fw-bold py-3" id="btn-autorizar-terminal" onclick="solicitarAutorizarTerminal()">
+        🔓 Autorizar Este Dispositivo
+      </button>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
   <!-- VISTA 1: KIOSKO DE MARCACIÓN EN CAJA (INICIAR / FINALIZAR CON CANDADO) -->
   <!-- ===================================================================== -->
-  <div id="vista-reloj" class="vista activa container">
+  <div id="vista-reloj" class="vista container">
     <div class="card p-3 mb-3 text-center">
-      <div class="reloj-digital" id="reloj-hora">00:00:00</div>
-      <div class="text-muted small mt-1" id="reloj-fecha">Cargando fecha...</div>
+      <div class="reloj-digital" id="reloj-hora">00:00:00 a. m.</div>
+      <div class="reloj-fecha-texto mt-1" id="reloj-fecha">Cargando fecha...</div>
       <div class="mt-2">
         <span class="badge bg-warning text-dark px-3 py-1" id="badge-tipo-dia-hoy">Consultando calendario...</span>
       </div>
@@ -261,7 +288,7 @@
       <div id="contenedor-nomina-empleados"></div>
     </div>
 
-    <!-- SUB-VISTA B: CONFIGURAR TARIFAS Y TOLERANCIA -->
+    <!-- SUB-VISTA B: CONFIGURAR TARIFAS, TOLERANCIA Y SEGURIDAD DE CAJA -->
     <div id="subvista-tarifas" style="display:none;">
       <div class="card p-3 mb-3">
         <h6 class="fw-bold text-gold mb-3">🍽️ Tarifas Mesero y Cajero</h6>
@@ -349,9 +376,25 @@
         </div>
       </div>
 
-      <button class="btn btn-warning w-100 py-3 fw-bold shadow" id="btn-guardar-tarifas" onclick="guardarTarifasAdmin()">
+      <button class="btn btn-warning w-100 py-3 fw-bold shadow mb-4" id="btn-guardar-tarifas" onclick="guardarTarifasAdmin()">
         💾 Guardar Nuevas Tarifas
       </button>
+
+      <!-- CONTROL DE TERMINAL AUTORIZADA -->
+      <div class="card p-3" style="border-color: #ef4444;">
+        <h6 class="fw-bold text-danger mb-2">🔒 Seguridad de Terminal (Caja)</h6>
+        <p class="small text-muted mb-3">
+          Si cambiaste el celular o computador de la caja, revoca el permiso anterior para que nadie pueda marcar desde el dispositivo viejo.
+        </p>
+        <div class="d-grid gap-2">
+          <button class="btn btn-outline-danger fw-bold py-2" onclick="revocarTodosLosEquipos()">
+            🚫 Revocar Equipos Autorizados
+          </button>
+          <button class="btn btn-outline-secondary btn-sm" onclick="bloquearSoloEsteEquipo()">
+            Quitar permiso solo a este navegador
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- SUB-VISTA C: FERIADOS COLOMBIA CALCULADOS AUTOMÁTICAMENTE -->
@@ -366,7 +409,9 @@
 
 <script>
   const API_URL = "https://script.google.com/macros/s/AKfycbxL629Jw9KzpkM6e045uuDLvtv1eSC4kZMqhRW6qpdmU_IW7AIkLkDDwakBK721J0TR/exec";
+  const KEY_TOKEN_TERMINAL = "altamira_terminal_token_v1";
 
+  let terminalAutorizada = false;
   let usuarios = [];
   let turnos = [];
   let tarifas = {};
@@ -375,7 +420,18 @@
   let feriadosProximo = [];
   let pinReloj = "";
   let empleadoSeleccionado = null;
-  let timerResetReloj = null;
+
+  function obtenerTokenLocal() {
+    try { return localStorage.getItem(KEY_TOKEN_TERMINAL) || ""; } catch(e) { return ""; }
+  }
+
+  function guardarTokenLocal(tok) {
+    try { localStorage.setItem(KEY_TOKEN_TERMINAL, tok); } catch(e) {}
+  }
+
+  function borrarTokenLocal() {
+    try { localStorage.removeItem(KEY_TOKEN_TERMINAL); } catch(e) {}
+  }
 
   async function llamarBackend(action, data = {}) {
     data.action = action;
@@ -394,7 +450,9 @@
 
   function actualizarRelojPantalla() {
     const ahora = new Date();
-    document.getElementById('reloj-hora').innerText = ahora.toLocaleTimeString('es-CO', { hour12: false });
+    document.getElementById('reloj-hora').innerText = ahora.toLocaleTimeString('es-CO', {
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+    });
     document.getElementById('reloj-fecha').innerText = ahora.toLocaleDateString('es-CO', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
     });
@@ -402,13 +460,31 @@
   setInterval(actualizarRelojPantalla, 1000);
   actualizarRelojPantalla();
 
+  function aplicarEstadoAutorizacion() {
+    document.getElementById('vista-admin').classList.remove('activa');
+    document.getElementById('btn-volver-reloj').style.display = 'none';
+    document.getElementById('btn-abrir-admin').style.display = 'inline-block';
+
+    if (terminalAutorizada) {
+      document.getElementById('vista-bloqueo').classList.remove('activa');
+      document.getElementById('vista-reloj').classList.add('activa');
+      document.getElementById('nav-titulo').innerText = '⏱️ Reloj de Turnos';
+      renderizarEnTurno();
+    } else {
+      document.getElementById('vista-reloj').classList.remove('activa');
+      document.getElementById('vista-bloqueo').classList.add('activa');
+      document.getElementById('nav-titulo').innerText = '🔒 Terminal Bloqueada';
+    }
+  }
+
   function cargarDatosIniciales() {
-    llamarBackend('obtenerDatosTurnos').then(res => {
+    llamarBackend('obtenerDatosTurnos', { token: obtenerTokenLocal() }).then(res => {
       document.getElementById('pantalla-carga').style.display = 'none';
       if (!res || !res.ok) {
         mostrarAlerta("Error", "No se pudo conectar con Google Sheets.", "❌");
         return;
       }
+      terminalAutorizada = Boolean(res.autorizado);
       usuarios = res.usuarios || [];
       turnos = res.turnos || [];
       tarifas = res.tarifas || {};
@@ -419,10 +495,52 @@
       if (res.infoHoy) {
         document.getElementById('badge-tipo-dia-hoy').innerText = "Hoy: " + res.infoHoy.etiqueta;
       }
-      renderizarEnTurno();
+      aplicarEstadoAutorizacion();
     });
   }
   cargarDatosIniciales();
+
+  function solicitarAutorizarTerminal() {
+    const pin = document.getElementById('in-pin-autorizar').value.trim();
+    if (pin.length !== 4) {
+      return mostrarAlerta("PIN Incompleto", "Ingresa los 4 números del PIN de Superadmin.", "❌");
+    }
+    const btn = document.getElementById('btn-autorizar-terminal');
+    btn.disabled = true; btn.innerText = "Verificando...";
+
+    llamarBackend('autorizarTerminal', { pin: pin }).then(res => {
+      btn.disabled = false; btn.innerText = "🔓 Autorizar Este Dispositivo";
+      document.getElementById('in-pin-autorizar').value = "";
+
+      if (!res || !res.ok) {
+        return mostrarAlerta("Denegado", (res && res.error) ? res.error : "PIN incorrecto.", "❌");
+      }
+
+      guardarTokenLocal(res.token);
+      terminalAutorizada = true;
+      aplicarEstadoAutorizacion();
+      mostrarAlerta("Caja Activada", res.mensaje, "✅");
+    });
+  }
+
+  function revocarTodosLosEquipos() {
+    if (!confirm("¿Seguro que deseas revocar todos los equipos autorizados? Ningún dispositivo podrá marcar turnos hasta que vuelvas a ingresar tu PIN en la Caja.")) return;
+    llamarBackend('revocarTerminales').then(res => {
+      if (res && res.ok) {
+        borrarTokenLocal();
+        terminalAutorizada = false;
+        aplicarEstadoAutorizacion();
+        mostrarAlerta("Equipos Revocados", "Todos los dispositivos quedaron bloqueados. Ahora puedes autorizar únicamente el equipo nuevo de la Caja.", "🔒");
+      }
+    });
+  }
+
+  function bloquearSoloEsteEquipo() {
+    borrarTokenLocal();
+    terminalAutorizada = false;
+    aplicarEstadoAutorizacion();
+    mostrarAlerta("Bloqueado", "Este navegador ya no tiene permiso para marcar turnos.", "🔒");
+  }
 
   function formatearMoneda(input) {
     let val = input.value.replace(/\D/g, '');
@@ -475,12 +593,10 @@
     const txtEstado = document.getElementById('emp-reloj-estado-txt');
 
     if (turnoAbierto) {
-      // Ya inició turno -> Bloquear Iniciar, Habilitar Finalizar
       btnIniciar.disabled = true;
       btnFinalizar.disabled = false;
       txtEstado.innerHTML = `<span class="text-success fw-bold">● En turno desde las ${turnoAbierto.horaEntrada}</span>`;
     } else {
-      // No ha iniciado turno -> Habilitar Iniciar, Bloquear Finalizar
       btnIniciar.disabled = false;
       btnFinalizar.disabled = true;
       txtEstado.innerHTML = `<span class="text-muted">Actualmente fuera de turno</span>`;
@@ -491,7 +607,6 @@
   }
 
   function cancelarSeleccionReloj() {
-    if (timerResetReloj) clearTimeout(timerResetReloj);
     empleadoSeleccionado = null;
     pinReloj = "";
     document.getElementById('display-pin-reloj').innerText = "";
@@ -504,8 +619,14 @@
     const btn = document.getElementById('btn-iniciar-turno');
     btn.disabled = true; btn.innerText = "Registrando entrada...";
 
-    llamarBackend('marcarEntradaTurno', { pin: empleadoSeleccionado.pin }).then(res => {
+    llamarBackend('marcarEntradaTurno', { pin: empleadoSeleccionado.pin, token: obtenerTokenLocal() }).then(res => {
       btn.innerText = "🟢 INICIAR TURNO";
+      if (res && res.noAutorizado) {
+        borrarTokenLocal();
+        terminalAutorizada = false;
+        aplicarEstadoAutorizacion();
+        return mostrarAlerta("Terminal Revocada", res.error, "🔒");
+      }
       if (!res || !res.ok) {
         cancelarSeleccionReloj();
         return mostrarAlerta("Atención", (res && res.error) ? res.error : "Error al registrar entrada.", "❌");
@@ -523,8 +644,14 @@
     const btn = document.getElementById('btn-finalizar-turno');
     btn.disabled = true; btn.innerText = "Calculando turno...";
 
-    llamarBackend('marcarSalidaTurno', { pin: empleadoSeleccionado.pin }).then(res => {
+    llamarBackend('marcarSalidaTurno', { pin: empleadoSeleccionado.pin, token: obtenerTokenLocal() }).then(res => {
       btn.innerText = "🔴 FINALIZAR TURNO";
+      if (res && res.noAutorizado) {
+        borrarTokenLocal();
+        terminalAutorizada = false;
+        aplicarEstadoAutorizacion();
+        return mostrarAlerta("Terminal Revocada", res.error, "🔒");
+      }
       if (!res || !res.ok) {
         cancelarSeleccionReloj();
         return mostrarAlerta("Atención", (res && res.error) ? res.error : "Error al registrar salida.", "❌");
@@ -588,6 +715,7 @@
     }
     document.getElementById('modal-pin-admin').style.display = 'none';
     document.getElementById('vista-reloj').classList.remove('activa');
+    document.getElementById('vista-bloqueo').classList.remove('activa');
     document.getElementById('vista-admin').classList.add('activa');
     document.getElementById('btn-abrir-admin').style.display = 'none';
     document.getElementById('btn-volver-reloj').style.display = 'inline-block';
@@ -597,13 +725,8 @@
   }
 
   function volverAlReloj() {
-    document.getElementById('vista-admin').classList.remove('activa');
-    document.getElementById('vista-reloj').classList.add('activa');
-    document.getElementById('btn-volver-reloj').style.display = 'none';
-    document.getElementById('btn-abrir-admin').style.display = 'inline-block';
-    document.getElementById('nav-titulo').innerText = '⏱️ Reloj de Turnos';
     cancelarSeleccionReloj();
-    renderizarEnTurno();
+    aplicarEstadoAutorizacion();
   }
 
   function cambiarTabAdmin(tab) {
@@ -621,7 +744,7 @@
   }
 
   function cargarDatosAdmin() {
-    llamarBackend('obtenerDatosTurnos').then(res => {
+    llamarBackend('obtenerDatosTurnos', { token: obtenerTokenLocal() }).then(res => {
       if (res && res.ok) {
         usuarios = res.usuarios;
         turnos = res.turnos;
@@ -638,7 +761,6 @@
 
   function renderizarNominaLunes() {
     const cont = document.getElementById('contenedor-nomina-empleados');
-    // Agrupar todos los empleados que tengan turnos pendientes/abiertos O consumos en planilla
     const nombresSet = new Set();
     turnos.forEach(t => nombresSet.add(t.empleado));
     consumos.forEach(c => nombresSet.add(c.empleado));
