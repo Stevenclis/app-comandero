@@ -353,6 +353,15 @@
     document.getElementById('display-pin-reloj').innerText = '●'.repeat(pinReloj.length);
   }
 
+  document.addEventListener('keydown', function(e) {
+    const bloqueTeclado = document.getElementById('bloque-teclado-reloj');
+    if (bloqueTeclado && bloqueTeclado.style.display !== 'none') {
+      if (e.key >= '0' && e.key <= '9') teclearPinReloj(e.key);
+      if (e.key === 'Backspace') borrarPinReloj();
+      if (e.key === 'Enter') verificarEmpleadoReloj();
+    }
+  });
+
   function verificarEmpleadoReloj() {
     if (pinReloj.length !== 4) return;
     const user = usuarios.find(u => u.pin === pinReloj);
@@ -475,6 +484,7 @@
     });
     cont.innerHTML = html;
   }
+  if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js'); }); }
 </script>
 </body>
 </html>
