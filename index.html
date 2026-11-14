@@ -58,6 +58,7 @@
     .banner-red.sincronizando { background: #0284c7; }
     
     .btn-flotante-add { position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(145deg, var(--gold-main), var(--gold-hover)); color: #ffffff; font-size: 30px; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4); z-index: 99; cursor: pointer;}
+   .btn-flotante-rapida { position: fixed; bottom: 20px; right: 92px; width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(145deg, #10b981, #059669); color: #ffffff; font-size: 26px; display: none; justify-content: center; align-items: center; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); z-index: 99; cursor: pointer;}
     
     .btn-menu-dia { padding: 14px 16px; background: linear-gradient(135deg, var(--bg-card), var(--bg-input)); border: 2px solid var(--gold-main); color: var(--text-main); border-radius: 14px; box-shadow: 0 4px 12px rgba(212, 175, 55, 0.2); transition: transform 0.1s; }
     .btn-menu-dia:active { transform: scale(0.98); }
@@ -380,8 +381,19 @@
     </div>
   </div>
 
-  <div id="vista-lista" class="vista container">
+<div id="vista-lista" class="vista container">
+    <div id="anuncio-menu-dia" class="card mb-3 shadow-sm" style="display:none; border: 1.5px solid var(--gold-main); cursor: pointer;" onclick="toggleAnuncioMenuDia()">
+      <div class="p-2 px-3 d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-2">
+          <span class="fw-bold text-primary-theme" style="font-size: 14px;">🍲 Menú del Día</span>
+          <span class="badge bg-success" id="anuncio-md-precio">$0</span>
+        </div>
+        <small class="text-muted fw-bold" id="anuncio-md-flecha">Ver ▼</small>
+      </div>
+      <div id="anuncio-menu-dia-cuerpo" class="px-3 pb-3 pt-2 border-top" style="display:none; border-color: var(--border-color) !important; white-space: pre-line; font-size: 13px; line-height: 1.45;"></div>
+    </div>
     <div id="contenedor-comandas" class="row"></div>
+    <div id="btn-flotante-rapida" class="btn-flotante-rapida" onclick="iniciarVentaRapida()">⚡</div>
     <div class="btn-flotante-add" onclick="cambiarVista('nueva', 'Abrir Mesa')">✚</div>
   </div>
 
@@ -1154,6 +1166,7 @@
     let superAdmin = esRolSuperAdmin();
 
     document.getElementById('btn-menu-venta-rapida').style.display = adminCajero ? 'block' : 'none';
+    document.getElementById('btn-flotante-rapida').style.display = adminCajero ? 'flex' : 'none';
     document.getElementById('btn-menu-caja').style.display = adminCajero ? 'block' : 'none';
     document.getElementById('btn-menu-consumos-admin').style.display = adminCajero ? 'block' : 'none';
     document.getElementById('btn-menu-nomina').style.display = adminCajero ? 'block' : 'none';
@@ -1192,6 +1205,33 @@
   // MENÚ DEL DÍA (MEMORIA FANTASMA)
   // =========================================================================
 
+  function toggleAnuncioMenuDia() {
+    let cuerpo = document.getElementById('anuncio-menu-dia-cuerpo');
+    let flecha = document.getElementById('anuncio-md-flecha');
+    if (!cuerpo || !flecha) return;
+    if (cuerpo.style.display === 'none') {
+      cuerpo.style.display = 'block';
+      flecha.innerText = 'Ocultar ▲';
+    } else {
+      cuerpo.style.display = 'none';
+      flecha.innerText = 'Ver ▼';
+    }
+  }
+
+  function actualizarAnuncioMenuDia() {
+    let caja = document.getElementById('anuncio-menu-dia');
+    if (!caja) return;
+    if (menuDiaData && menuDiaData.estado === 'Activo') {
+      caja.style.display = 'block';
+      document.getElementById('anuncio-md-precio').innerText = "$" + Number(menuDiaData.precio).toLocaleString('es-CO');
+      document.getElementById('anuncio-menu-dia-cuerpo').innerText = menuDiaData.descripcion || "Sin descripción detallada.";
+    } else {
+      caja.style.display = 'none';
+      document.getElementById('anuncio-menu-dia-cuerpo').style.display = 'none';
+      document.getElementById('anuncio-md-flecha').innerText = 'Ver ▼';
+    }
+  }
+  
   function abrirModalMenuDia() {
     if (!menuDiaData || menuDiaData.estado !== 'Activo') return;
     mdModalCant = 1;
@@ -1549,6 +1589,7 @@ function actualizarTextoBotonAbrir() {
   function renderizarComandasEnPantalla() {
     let listaFiltrada = cacheMesas;
     if(!esRolAdminOCajero()) { listaFiltrada = cacheMesas.filter(m => m.encargado === usuarioActual.nombre); }
+    actualizarAnuncioMenuDia();
     if(listaFiltrada.length === 0) { document.getElementById('contenedor-comandas').innerHTML = '<p class="text-center mt-4 text-muted">No hay mesas activas.</p>'; return; }
     
     let html = '';
