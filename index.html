@@ -132,6 +132,9 @@
     .btn-secondary, .btn-outline-secondary { border-color: var(--border-color); color: var(--text-main); }
     .btn-dark { background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main);}
 
+    .nav-pills .nav-link { color: var(--text-main); border: 1px solid var(--border-color); background: var(--bg-card); }
+    .nav-pills .nav-link.active { background: var(--gold-main); color: #ffffff; border-color: var(--gold-main); }
+
     .logo-login { max-width: 150px; margin-bottom: 15px; border-radius: 50%; border: 2px solid var(--gold-main); box-shadow: 0 0 20px rgba(212,175,55,0.3); }
   </style>
 </head>
@@ -176,6 +179,7 @@
       <a class="menu-item text-primary-theme" id="btn-menu-venta-rapida" onclick="intentarNavegar(iniciarVentaRapida)" data-bs-dismiss="offcanvas" style="display:none;">⚡ Venta Rápida</a>
       <a class="menu-item" style="color: #0ea5e9 !important;" id="btn-menu-caja" onclick="intentarNavegar(() => cambiarVista('caja', 'Control de Caja'))" data-bs-dismiss="offcanvas" style="display:none;">💵 Control de Caja</a>
       <a class="menu-item" style="color: #f59e0b !important;" id="btn-menu-consumos-admin" onclick="intentarNavegar(abrirConsumosAdmin)" data-bs-dismiss="offcanvas" style="display:none;">🍔 Consumo Empleados</a>
+      <a class="menu-item" style="color: #10b981 !important;" id="btn-menu-nomina" onclick="intentarNavegar(abrirNomina)" data-bs-dismiss="offcanvas" style="display:none;">💸 Nómina y Turnos</a>
       <a class="menu-item" style="color: #f59e0b !important;" id="btn-menu-mi-consumo" onclick="intentarNavegar(abrirMiConsumo)" data-bs-dismiss="offcanvas" style="display:none;">🧾 Mi Consumo</a>
       <a class="menu-item" onclick="intentarNavegar(cargarComandasCerradas)" data-bs-dismiss="offcanvas">✅ Historial Pagadas</a>
       <a class="menu-item" id="btn-menu-cierre" onclick="intentarNavegar(() => cambiarVista('cierre', 'Cierre de Caja'))" data-bs-dismiss="offcanvas" style="display:none;">💰 Cierre del Día</a>
@@ -223,6 +227,41 @@
       <div class="d-flex flex-column gap-2">
         <button class="btn btn-primary btn-lg fw-bold" onclick="document.getElementById('modal-vacia').style.display='none';">Agregar Productos</button>
         <button class="btn btn-outline-danger btn-lg fw-bold" onclick="eliminarMesaVacia()">Eliminar Mesa</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL EDITAR TURNO (EXCLUSIVO SUPERADMIN) -->
+  <div id="modal-editar-turno" class="alerta-overlay">
+    <div class="alerta-caja text-start" style="border: 1.5px solid var(--gold-main);">
+      <h5 class="fw-bold text-primary-theme mb-1">✏️ Ajustar Turno</h5>
+      <small class="text-muted d-block mb-3" id="et-info-emp"></small>
+      <input type="hidden" id="et-id">
+
+      <div class="row g-2 mb-2">
+        <div class="col-6">
+          <label class="small text-muted fw-bold">Hora Entrada</label>
+          <input type="time" id="et-entrada" class="form-control">
+        </div>
+        <div class="col-6">
+          <label class="small text-muted fw-bold">Hora Salida</label>
+          <input type="time" id="et-salida" class="form-control">
+        </div>
+      </div>
+
+      <div class="mb-2">
+        <label class="small text-muted fw-bold">Concepto / Tipo Turno</label>
+        <input type="text" id="et-tipo" class="form-control" placeholder="Ej. Medio Turno, Turno Completo...">
+      </div>
+
+      <div class="mb-3">
+        <label class="small text-muted fw-bold">Total a Pagar por este Turno ($)</label>
+        <input type="text" id="et-total" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+      </div>
+
+      <div class="d-flex gap-2">
+        <button class="btn btn-secondary w-50 fw-bold py-2" onclick="document.getElementById('modal-editar-turno').style.display='none'">Cancelar</button>
+        <button class="btn btn-success w-50 fw-bold py-2" onclick="guardarEdicionTurno()">Guardar Cambio</button>
       </div>
     </div>
   </div>
@@ -429,6 +468,151 @@
       <span class="badge bg-warning text-dark" id="badge-total-planilla">Total: $0</span>
     </div>
     <div id="lista-resumen-consumos"></div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- VISTA NÓMINA Y TURNOS (CAJERO PAGA / SUPERADMIN TOTAL)    -->
+  <!-- ========================================================= -->
+  <div id="vista-nomina" class="vista container">
+    <!-- Pestañas visibles solo para Superadmin -->
+    <ul class="nav nav-pills nav-fill mb-3 gap-1" id="tabs-nomina-superadmin" style="display:none;">
+      <li class="nav-item">
+        <button class="nav-link active fw-bold" id="tab-nom-liquidar" onclick="cambiarTabNomina('liquidar')">💸 Liquidar Lunes</button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link fw-bold" id="tab-nom-tarifas" onclick="cambiarTabNomina('tarifas')">⚙️ Tarifas</button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link fw-bold" id="tab-nom-feriados" onclick="cambiarTabNomina('feriados')">📅 Feriados</button>
+      </li>
+    </ul>
+
+    <!-- SUB-VISTA A: LIQUIDACIÓN DE NÓMINA Y CRUCE CON CONSUMOS -->
+    <div id="subvista-nom-liquidar">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="badge bg-warning text-dark" id="nom-badge-hoy">Hoy</span>
+        <button class="btn btn-sm btn-outline-primary fw-bold" onclick="cargarDatosNomina()">🔄 Actualizar</button>
+      </div>
+      <div class="alert bg-input-theme small text-muted mb-3">
+        💡 Se suman los turnos pendientes de cada trabajador y se descuenta automáticamente lo que tenga anotado en <strong>Consumo Empleados</strong>.
+      </div>
+      <div id="contenedor-nomina-empleados">
+        <div class="text-center py-4 text-muted">Cargando turnos y consumos...</div>
+      </div>
+    </div>
+
+    <!-- SUB-VISTA B: CONFIGURAR TARIFAS Y SEGURIDAD (EXCLUSIVO SUPERADMIN) -->
+    <div id="subvista-nom-tarifas" style="display:none;">
+      <div class="card p-3 mb-3">
+        <h6 class="fw-bold text-primary-theme mb-3">🍽️ Tarifas Mesero y Cajero</h6>
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <label class="small text-muted">Medio Turno (Lun-Vie)</label>
+            <input type="text" id="t-mc-medio-sem" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+          <div class="col-6">
+            <label class="small text-muted">Turno Completo (Lun-Vie)</label>
+            <input type="text" id="t-mc-comp-sem" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+        </div>
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <label class="small text-muted">Medio Turno Sábado</label>
+            <input type="text" id="t-mc-medio-sab" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+          <div class="col-6">
+            <label class="small text-muted">Turno Completo Sábado</label>
+            <input type="text" id="t-mc-comp-sab" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+        </div>
+        <div class="row g-2">
+          <div class="col-6">
+            <label class="small text-muted">Medio Turno Dom/Festivo</label>
+            <input type="text" id="t-mc-medio-dom" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+          <div class="col-6">
+            <label class="small text-muted">Turno Completo Dom/Fest</label>
+            <input type="text" id="t-mc-comp-dom" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+        </div>
+      </div>
+
+      <div class="card p-3 mb-3">
+        <h6 class="fw-bold text-primary-theme mb-3">👨‍🍳 Tarifas Cocina</h6>
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <label class="small text-muted">Medio Turno (Lun-Vie)</label>
+            <input type="text" id="t-coc-medio-sem" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+          <div class="col-6">
+            <label class="small text-muted">Turno Completo (Lun-Vie)</label>
+            <input type="text" id="t-coc-comp-sem" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+        </div>
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <label class="small text-muted">Medio Turno Sábado</label>
+            <input type="text" id="t-coc-medio-sab" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+          <div class="col-6">
+            <label class="small text-muted">Turno Completo Sábado</label>
+            <input type="text" id="t-coc-comp-sab" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+        </div>
+        <div class="row g-2">
+          <div class="col-6">
+            <label class="small text-muted">Medio Turno Dom/Festivo</label>
+            <input type="text" id="t-coc-medio-dom" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+          <div class="col-6">
+            <label class="small text-muted">Turno Completo Dom/Fest</label>
+            <input type="text" id="t-coc-comp-dom" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+        </div>
+      </div>
+
+      <div class="card p-3 mb-3">
+        <h6 class="fw-bold text-primary-theme mb-3">⏱️ Horas Extra y Tolerancia</h6>
+        <div class="row g-2">
+          <div class="col-4">
+            <label class="small text-muted">Extra Lun-Vie ($)</label>
+            <input type="text" id="t-extra-sem" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+          <div class="col-4">
+            <label class="small text-muted">Extra Sáb/Dom/Fest</label>
+            <input type="text" id="t-extra-fin" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+          <div class="col-4">
+            <label class="small text-muted">Gracia (Minutos)</label>
+            <input type="number" id="t-tolerancia" class="form-control fw-bold text-center" min="0" max="59">
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary w-100 py-3 fw-bold shadow mb-4" id="btn-guardar-tarifas" onclick="guardarTarifasAdmin()">
+        💾 Guardar Nuevas Tarifas
+      </button>
+
+      <!-- CONTROL DE TERMINAL AUTORIZADA (RELOJ DE CAJA) -->
+      <div class="card p-3" style="border-color: #ef4444;">
+        <h6 class="fw-bold text-danger mb-2">🔒 Seguridad del Reloj de Caja (turnos.html)</h6>
+        <p class="small text-muted mb-3">
+          Si cambiaste el celular o computador de la caja, revoca el permiso anterior para bloquear el equipo viejo y autorizar únicamente el nuevo.
+        </p>
+        <button class="btn btn-outline-danger w-100 fw-bold py-2" onclick="revocarTodosLosEquipos()">
+          🚫 Revocar Equipos Autorizados
+        </button>
+      </div>
+    </div>
+
+    <!-- SUB-VISTA C: FERIADOS COLOMBIA CALCULADOS AUTOMÁTICAMENTE -->
+    <div id="subvista-nom-feriados" style="display:none;">
+      <div class="card p-3 mb-3">
+        <h6 class="fw-bold text-primary-theme mb-2">🇨🇴 Feriados Oficiales de Colombia</h6>
+        <p class="small text-muted mb-3">Calculados automáticamente para cada año (Ley Emiliani y Semana Santa).</p>
+        <div id="lista-feriados-colombia"></div>
+      </div>
+    </div>
   </div>
 
   <!-- VISTA SOLO LECTURA PARA EL TRABAJADOR (MI CONSUMO) -->
@@ -853,6 +1037,7 @@
 
   let cacheMesas = [], cacheDetalles = {}, cacheCerradas = [], catalogo = [], listaUsuarios = [];
   let cacheConsumos = [], consumosEliminadosEnSesion = [];
+  let cacheTurnos = [], cacheTarifas = {}, cacheFeriadosAnio = [], cacheFeriadosProximo = [];
   let pausaSyncConsumosHasta = 0, pausaSyncMenuDiaHasta = 0;
   let menuDiaData = { estado: 'Oculto', precio: 0, descripcion: '', fecha: '' };
   let idActual = null, totalActual = 0, usuarioActual = null, miPin = "";
@@ -969,6 +1154,7 @@
     document.getElementById('btn-menu-venta-rapida').style.display = adminCajero ? 'block' : 'none';
     document.getElementById('btn-menu-caja').style.display = adminCajero ? 'block' : 'none';
     document.getElementById('btn-menu-consumos-admin').style.display = adminCajero ? 'block' : 'none';
+    document.getElementById('btn-menu-nomina').style.display = adminCajero ? 'block' : 'none';
     document.getElementById('btn-menu-mi-consumo').style.display = !superAdmin ? 'block' : 'none';
     document.getElementById('btn-menu-cierre').style.display = adminCajero ? 'block' : 'none';
     document.getElementById('btn-abrir-pago').style.display = adminCajero ? 'block' : 'none';
@@ -1833,6 +2019,322 @@
                </div>`;
     });
     contenedor.innerHTML = html;
+  }
+
+  // =========================================================================
+  // MÓDULO: NÓMINA Y TURNOS (CAJERO PAGA / SUPERADMIN ACCESO TOTAL)
+  // =========================================================================
+
+  function abrirNomina() {
+    let esSuper = esRolSuperAdmin();
+    document.getElementById('tabs-nomina-superadmin').style.display = esSuper ? 'flex' : 'none';
+    cambiarTabNomina('liquidar');
+    cambiarVista('nomina', 'Nómina y Turnos');
+    cargarDatosNomina();
+  }
+
+  function cambiarTabNomina(tab) {
+    ['liquidar', 'tarifas', 'feriados'].forEach(t => {
+      document.getElementById('subvista-nom-' + t).style.display = (t === tab) ? 'block' : 'none';
+      let btn = document.getElementById('tab-nom-' + t);
+      if (btn) {
+        if (t === tab) btn.classList.add('active');
+        else btn.classList.remove('active');
+      }
+    });
+  }
+
+  function cargarDatosNomina() {
+    document.getElementById('contenedor-nomina-empleados').innerHTML = '<p class="text-center text-muted py-4">Consultando turnos y consumos...</p>';
+    llamarBackend('obtenerDatosTurnos').then(res => {
+      if (!res || !res.ok) {
+        document.getElementById('contenedor-nomina-empleados').innerHTML = '<p class="text-center text-danger py-4">Sin conexión a internet para consultar la nómina.</p>';
+        return;
+      }
+      cacheTurnos = res.turnos || [];
+      cacheTarifas = res.tarifas || {};
+      cacheConsumos = res.consumos || [];
+      cacheFeriadosAnio = res.feriadosAnio || [];
+      cacheFeriadosProximo = res.feriadosProximo || [];
+
+      if (res.infoHoy) {
+        document.getElementById('nom-badge-hoy').innerText = "Hoy: " + res.infoHoy.etiqueta;
+      }
+
+      renderizarNominaLunes();
+      if (esRolSuperAdmin()) {
+        cargarFormularioTarifas();
+        renderizarFeriados();
+      }
+    });
+  }
+
+  function renderizarNominaLunes() {
+    const cont = document.getElementById('contenedor-nomina-empleados');
+    const esSuper = esRolSuperAdmin();
+    const nombresSet = new Set();
+    cacheTurnos.forEach(t => nombresSet.add(t.empleado));
+    cacheConsumos.forEach(c => nombresSet.add(c.empleado));
+
+    const listaEmps = Array.from(nombresSet).sort((a, b) => a.localeCompare(b));
+    if (listaEmps.length === 0) {
+      cont.innerHTML = '<p class="text-center text-muted mt-4">No hay turnos ni consumos pendientes por liquidar.</p>';
+      return;
+    }
+
+    let html = '';
+    listaEmps.forEach(emp => {
+      const turnosEmp = cacheTurnos.filter(t => t.empleado.toLowerCase() === emp.toLowerCase());
+      const consumosEmp = cacheConsumos.filter(c => c.empleado.toLowerCase() === emp.toLowerCase());
+
+      const totalTurnos = turnosEmp.reduce((acc, t) => acc + (t.estado === 'Pendiente' ? Number(t.totalPagar) : 0), 0);
+      const totalConsumos = consumosEmp.reduce((acc, c) => acc + Number(c.subtotal), 0);
+      const netoPagar = totalTurnos - totalConsumos;
+      const tieneAbierto = turnosEmp.some(t => t.estado === 'Abierto');
+
+      let htmlTurnos = '';
+      turnosEmp.forEach(t => {
+        const hrs = (t.minutosTotales / 60).toFixed(1);
+        const badgeEstado = t.estado === 'Abierto'
+          ? '<span class="badge bg-warning text-dark">En curso</span>'
+          : `<span class="text-success fw-bold">$${Number(t.totalPagar).toLocaleString('es-CO')}</span>`;
+        const extraTxt = t.minutosExtra > 0 ? ` • +${(t.minutosExtra/60).toFixed(1)}h extra` : '';
+
+        // Solo el Superadmin ve los botones de editar o borrar turnos
+        const botonesAdminTurno = esSuper
+          ? `<button class="btn btn-sm btn-outline-primary px-2 py-0" onclick="abrirEditarTurno('${t.id}')">✏️</button>
+             <button class="btn btn-sm btn-outline-danger px-2 py-0" onclick="confirmarEliminarTurno('${t.id}')">🗑️</button>`
+          : '';
+
+        htmlTurnos += `<div class="d-flex justify-content-between align-items-center py-2 border-bottom" style="border-color: var(--border-color) !important;">
+                         <div class="small pe-2">
+                           <strong class="text-main-theme">${t.fecha}</strong> <span class="text-muted">(${t.tipoDia})</span><br>
+                           <span class="text-muted">${t.horaEntrada} - ${t.horaSalida || '...'} (${hrs}h • ${t.tipoTurno}${extraTxt})</span>
+                         </div>
+                         <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                           ${badgeEstado}
+                           ${botonesAdminTurno}
+                         </div>
+                       </div>`;
+      });
+
+      let htmlConsumos = '';
+      if (consumosEmp.length > 0) {
+        htmlConsumos = `<div class="mt-2 p-2 rounded bg-input-theme small">
+                          <div class="fw-bold text-warning mb-1">🍔 Consumos en Planilla (-$${totalConsumos.toLocaleString('es-CO')}):</div>`;
+        consumosEmp.forEach(c => {
+          htmlConsumos += `<div class="d-flex justify-content-between text-muted">
+                             <span>${c.cantidad}x ${c.producto} (${c.fecha})</span>
+                             <span>-$${Number(c.subtotal).toLocaleString('es-CO')}</span>
+                           </div>`;
+        });
+        htmlConsumos += `</div>`;
+      }
+
+      const empEsc = escaparTexto(emp);
+      const colorNeto = netoPagar >= 0 ? 'text-success' : 'text-danger';
+
+      html += `<div class="card p-3 mb-3 shadow-sm" style="border-left: 4px solid var(--gold-main);">
+                 <div class="d-flex justify-content-between align-items-center mb-2">
+                   <h5 class="fw-bold text-primary-theme m-0">👤 ${emp}</h5>
+                   <span class="badge bg-dark border border-secondary">${turnosEmp.length} turno(s)</span>
+                 </div>
+
+                 ${htmlTurnos || '<p class="small text-muted mb-2">Sin turnos registrados esta semana.</p>'}
+                 ${htmlConsumos}
+
+                 <div class="mt-3 pt-2 border-top" style="border-color: var(--border-color) !important;">
+                   <div class="d-flex justify-content-between small text-muted">
+                     <span>Total Ganado Turnos:</span>
+                     <span class="text-main-theme fw-bold">$${totalTurnos.toLocaleString('es-CO')}</span>
+                   </div>
+                   <div class="d-flex justify-content-between small text-muted">
+                     <span>Descuento Planilla Consumos:</span>
+                     <span class="text-danger fw-bold">-$${totalConsumos.toLocaleString('es-CO')}</span>
+                   </div>
+                   <div class="d-flex justify-content-between align-items-center mt-1">
+                     <span class="fw-bold text-main-theme">NETO A PAGAR:</span>
+                     <h4 class="fw-bold ${colorNeto} m-0">$${netoPagar.toLocaleString('es-CO')}</h4>
+                   </div>
+                 </div>
+
+                 ${tieneAbierto ? '<div class="text-warning small mt-2">⚠️ Tiene un turno abierto en curso; debe finalizarlo en el reloj antes de liquidar.</div>' : ''}
+
+                 <button class="btn btn-success w-100 fw-bold py-2 mt-3" ${tieneAbierto ? 'disabled' : ''} onclick="solicitarLiquidacionNomina('${empEsc}', ${netoPagar}, ${totalConsumos})">
+                   ✅ Pagar Nómina y Limpiar Planilla
+                 </button>
+               </div>`;
+    });
+
+    cont.innerHTML = html;
+  }
+
+  function abrirEditarTurno(id) {
+    if (!esRolSuperAdmin()) return;
+    const t = cacheTurnos.find(x => x.id === id);
+    if (!t) return;
+    document.getElementById('et-id').value = t.id;
+    document.getElementById('et-info-emp').innerText = `${t.empleado} • ${t.fecha} (${t.tipoDia})`;
+    document.getElementById('et-entrada').value = t.horaEntrada || '09:00';
+    document.getElementById('et-salida').value = t.horaSalida || '15:00';
+    document.getElementById('et-tipo').value = t.tipoTurno === 'En curso' ? 'Medio Turno' : t.tipoTurno;
+    document.getElementById('et-total').value = Number(t.totalPagar || 0).toLocaleString('es-CO');
+    document.getElementById('modal-editar-turno').style.display = 'flex';
+  }
+
+  function guardarEdicionTurno() {
+    if (!esRolSuperAdmin()) return;
+    const id = document.getElementById('et-id').value;
+    const hIn = document.getElementById('et-entrada').value;
+    const hOut = document.getElementById('et-salida').value;
+    const tipo = document.getElementById('et-tipo').value.trim() || 'Turno Ajustado';
+    const total = Number(document.getElementById('et-total').value.replace(/\D/g, ''));
+
+    if (!hIn || !hOut) return;
+    document.getElementById('modal-editar-turno').style.display = 'none';
+
+    llamarBackend('editarTurnoAdmin', { id: id, horaEntrada: hIn, horaSalida: hOut, tipoTurno: tipo, total: total }).then(res => {
+      if (res && res.ok) {
+        cacheTurnos = res.turnos;
+        renderizarNominaLunes();
+        mostrarAlerta("Turno Actualizado", "Los valores del turno fueron actualizados.", "success");
+      } else {
+        mostrarAlerta("Error", "No se pudo actualizar el turno. Verifica tu conexión.");
+      }
+    });
+  }
+
+  function confirmarEliminarTurno(id) {
+    if (!esRolSuperAdmin()) return;
+    abrirConfirmar("Borrar Turno", "¿Seguro que deseas eliminar este turno del registro?", () => {
+      llamarBackend('eliminarTurnoAdmin', { id: id }).then(res => {
+        if (res && res.ok) {
+          cacheTurnos = res.turnos;
+          renderizarNominaLunes();
+          mostrarAlerta("Eliminado", "Turno eliminado correctamente.", "success");
+        }
+      });
+    });
+  }
+
+  function solicitarLiquidacionNomina(empleado, neto, totalConsumos) {
+    const msg = totalConsumos > 0
+      ? `¿Confirmas el pago de $${neto.toLocaleString('es-CO')} a ${empleado}? Sus turnos pasarán a Pagados y su planilla de consumos ($${totalConsumos.toLocaleString('es-CO')}) quedará liquidada en $0.`
+      : `¿Confirmas el pago de $${neto.toLocaleString('es-CO')} a ${empleado}? Sus turnos pasarán a Pagados.`;
+
+    abrirConfirmar(
+      "Pagar Nómina",
+      msg,
+      () => {
+        pausaSyncConsumosHasta = Date.now() + 10000;
+        llamarBackend('liquidarNominaEmpleado', { empleado: empleado, descontarPlanilla: true }).then(res => {
+          if (res && res.ok) {
+            cacheTurnos = res.turnos || [];
+            cacheConsumos = res.consumos || [];
+            guardarEstadoEnMemoriaLocal();
+            renderizarNominaLunes();
+            mostrarAlerta("Nómina Pagada", `La nómina y planilla de ${empleado} quedaron liquidadas en $0.`, "success");
+          } else {
+            mostrarAlerta("Error", "No se pudo completar la liquidación. Verifica tu internet.");
+          }
+        });
+      },
+      "Confirmar Pago",
+      "btn-success",
+      "💸"
+    );
+  }
+
+  function cargarFormularioTarifas() {
+    document.getElementById('t-mc-medio-sem').value = Number(cacheTarifas.mc_medio_sem || 25000).toLocaleString('es-CO');
+    document.getElementById('t-mc-comp-sem').value = Number(cacheTarifas.mc_comp_sem || 60000).toLocaleString('es-CO');
+    document.getElementById('t-mc-medio-sab').value = Number(cacheTarifas.mc_medio_sab || 30000).toLocaleString('es-CO');
+    document.getElementById('t-mc-comp-sab').value = Number(cacheTarifas.mc_comp_sab || 60000).toLocaleString('es-CO');
+    document.getElementById('t-mc-medio-dom').value = Number(cacheTarifas.mc_medio_dom || 40000).toLocaleString('es-CO');
+    document.getElementById('t-mc-comp-dom').value = Number(cacheTarifas.mc_comp_dom || 80000).toLocaleString('es-CO');
+
+    document.getElementById('t-coc-medio-sem').value = Number(cacheTarifas.coc_medio_sem || 30000).toLocaleString('es-CO');
+    document.getElementById('t-coc-comp-sem').value = Number(cacheTarifas.coc_comp_sem || 70000).toLocaleString('es-CO');
+    document.getElementById('t-coc-medio-sab').value = Number(cacheTarifas.coc_medio_sab || 40000).toLocaleString('es-CO');
+    document.getElementById('t-coc-comp-sab').value = Number(cacheTarifas.coc_comp_sab || 80000).toLocaleString('es-CO');
+    document.getElementById('t-coc-medio-dom').value = Number(cacheTarifas.coc_medio_dom || 50000).toLocaleString('es-CO');
+    document.getElementById('t-coc-comp-dom').value = Number(cacheTarifas.coc_comp_dom || 100000).toLocaleString('es-CO');
+
+    document.getElementById('t-extra-sem').value = Number(cacheTarifas.extra_sem || 5000).toLocaleString('es-CO');
+    document.getElementById('t-extra-fin').value = Number(cacheTarifas.extra_fin || 7000).toLocaleString('es-CO');
+    document.getElementById('t-tolerancia').value = Number(cacheTarifas.tolerancia_min || 15);
+  }
+
+  function guardarTarifasAdmin() {
+    if (!esRolSuperAdmin()) return;
+    const num = (id) => Number(document.getElementById(id).value.replace(/\D/g, ''));
+    const nuevas = {
+      mc_medio_sem: num('t-mc-medio-sem'),
+      mc_comp_sem: num('t-mc-comp-sem'),
+      mc_medio_sab: num('t-mc-medio-sab'),
+      mc_comp_sab: num('t-mc-comp-sab'),
+      mc_medio_dom: num('t-mc-medio-dom'),
+      mc_comp_dom: num('t-mc-comp-dom'),
+      coc_medio_sem: num('t-coc-medio-sem'),
+      coc_comp_sem: num('t-coc-comp-sem'),
+      coc_medio_sab: num('t-coc-medio-sab'),
+      coc_comp_sab: num('t-coc-comp-sab'),
+      coc_medio_dom: num('t-coc-medio-dom'),
+      coc_comp_dom: num('t-coc-comp-dom'),
+      extra_sem: num('t-extra-sem'),
+      extra_fin: num('t-extra-fin'),
+      tolerancia_min: Number(document.getElementById('t-tolerancia').value || 15)
+    };
+
+    const btn = document.getElementById('btn-guardar-tarifas');
+    btn.disabled = true; btn.innerText = "Guardando...";
+
+    llamarBackend('guardarTarifasNomina', { tarifas: nuevas }).then(res => {
+      btn.disabled = false; btn.innerText = "💾 Guardar Nuevas Tarifas";
+      if (res && res.ok) {
+        cacheTarifas = res.tarifas;
+        mostrarAlerta("Tarifas Guardadas", "Los nuevos valores aplicarán para todos los próximos turnos.", "success");
+      } else {
+        mostrarAlerta("Error", "No se pudieron guardar las tarifas. Verifica tu conexión.");
+      }
+    });
+  }
+
+  function revocarTodosLosEquipos() {
+    if (!esRolSuperAdmin()) return;
+    abrirConfirmar(
+      "Revocar Reloj de Caja",
+      "¿Seguro que deseas revocar el dispositivo autorizado de turnos.html? Nadie podrá marcar turnos hasta que vuelvas a autorizar el equipo de la Caja con tu PIN.",
+      () => {
+        llamarBackend('revocarTerminales').then(res => {
+          if (res && res.ok) {
+            mostrarAlerta("Equipos Revocados", "El reloj anterior quedó bloqueado. Ya puedes autorizar el equipo nuevo de la Caja.", "success");
+          }
+        });
+      },
+      "Revocar Permiso",
+      "btn-danger",
+      "🔒"
+    );
+  }
+
+  function renderizarFeriados() {
+    const cont = document.getElementById('lista-feriados-colombia');
+    let html = '<h6 class="text-warning fw-bold mt-2">Año Actual</h6>';
+    cacheFeriadosAnio.forEach(f => {
+      html += `<div class="d-flex justify-content-between py-1 border-bottom small" style="border-color: var(--border-color) !important;">
+                 <span class="text-main-theme">${f.nombre}</span>
+                 <span class="text-primary-theme fw-bold">${f.fecha}</span>
+               </div>`;
+    });
+    html += '<h6 class="text-warning fw-bold mt-3">Próximo Año</h6>';
+    cacheFeriadosProximo.forEach(f => {
+      html += `<div class="d-flex justify-content-between py-1 border-bottom small" style="border-color: var(--border-color) !important;">
+                 <span class="text-main-theme">${f.nombre}</span>
+                 <span class="text-primary-theme fw-bold">${f.fecha}</span>
+               </div>`;
+    });
+    cont.innerHTML = html;
   }
 
   // =========================================================================
