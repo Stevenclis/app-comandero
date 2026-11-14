@@ -405,22 +405,167 @@
     </div>
   </div>
 
-  <div id="vista-caja" class="vista container">
-    <div class="card shadow-sm mb-4">
-      <div class="card-body">
-        <h5 class="fw-bold text-primary-theme">Ingresar Base Inicial</h5>
-        <select id="sel-caja-base" class="form-select mb-2 border-gold"></select>
-        <input type="text" id="in-base" class="form-control form-control-lg mb-2" placeholder="$ Monto de Base" onkeyup="formatearMoneda(this)">
-        <button class="btn btn-primary w-100 fw-bold" onclick="guardarMovimientoCaja('Base')">Guardar Base</button>
+<div id="vista-caja" class="vista container">
+    <!-- ALERTA AUTOMÁTICA DE $1.000.000 -->
+    <div id="alerta-millon-caja" class="alert alert-danger shadow-sm fw-bold mb-3" style="display:none; border: 2px solid #dc3545;">
+      <div id="texto-alerta-millon" class="mb-2"></div>
+      <button class="btn btn-sm btn-danger fw-bold w-100" onclick="document.getElementById('card-consignar-cf').scrollIntoView({behavior:'smooth'})">🔒 Liberar Caja hacia Caja Fuerte ahora</button>
+    </div>
+
+    <!-- RESUMEN EN VIVO DE SALDOS -->
+    <div class="card shadow-sm mb-3 border-gold">
+      <div class="card-body p-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h6 class="fw-bold text-primary-theme m-0">💰 Saldos Disponibles Hoy</h6>
+          <button class="btn btn-sm btn-outline-warning fw-bold" onclick="cargarEstadoCajas()">🔄 Actualizar</button>
+        </div>
+        <div class="row g-2 text-center">
+          <div class="col-6">
+            <div class="p-2 rounded bg-input-theme border">
+              <small class="text-muted d-block fw-bold">🍽️ Caja Restaurante</small>
+              <span class="fw-bold text-main-theme fs-6" id="saldo-vivo-rest">$0</span>
+              <small class="d-block text-muted" style="font-size:11px;" id="detalle-vivo-rest">Base: $0 | Ventas: $0</small>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="p-2 rounded bg-input-theme border">
+              <small class="text-muted d-block fw-bold">🏊 Caja Piscina</small>
+              <span class="fw-bold text-main-theme fs-6" id="saldo-vivo-pisc">$0</span>
+              <small class="d-block text-muted" style="font-size:11px;" id="detalle-vivo-pisc">Base: $0 | Ventas: $0</small>
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="p-2 rounded bg-input-theme border-gold d-flex justify-content-between align-items-center px-3">
+              <span class="fw-bold text-primary-theme">🔐 Caja Fuerte (Reserva):</span>
+              <span class="fw-bold text-success fs-5" id="saldo-vivo-cf">$0</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-    <div class="card shadow-sm">
+
+    <!-- 1. INGRESAR BASE INICIAL (MÁX. $500.000) -->
+    <div class="card shadow-sm mb-3">
       <div class="card-body">
-        <h5 class="fw-bold text-danger">Registrar Salida / Gasto</h5>
-        <select id="sel-caja-gasto" class="form-select mb-2 border-danger"></select>
-        <input type="text" id="in-gasto-concepto" class="form-control mb-2" placeholder="Ej. Garrafón de aceite">
-        <input type="text" id="in-gasto-monto" class="form-control form-control-lg mb-2" placeholder="$ Monto Gastado" onkeyup="formatearMoneda(this)">
-        <button class="btn btn-danger w-100 fw-bold" onclick="guardarMovimientoCaja('Gasto')">Registrar Gasto</button>
+        <h5 class="fw-bold text-primary-theme mb-1">1. Ingresar Base Inicial</h5>
+        <small class="text-muted d-block mb-2">Tope máximo permitido en caja: <b>$500.000</b></small>
+        <select id="sel-caja-base" class="form-select mb-2 border-gold"></select>
+        <input type="text" id="in-base" class="form-control form-control-lg mb-2" placeholder="$ Monto de Base (Máx. 500.000)" onkeyup="formatearMoneda(this)">
+        <button class="btn btn-primary w-100 fw-bold" onclick="registrarBaseDesdeApp()">Guardar Base</button>
+      </div>
+    </div>
+
+    <!-- 2. CONSIGNAR A CAJA FUERTE (LIBERAR CAJA) -->
+    <div id="card-consignar-cf" class="card shadow-sm mb-3 border-success">
+      <div class="card-body">
+        <h5 class="fw-bold text-success mb-1">2. Consignar a Caja Fuerte (Liberar Caja)</h5>
+        <small class="text-muted d-block mb-2">Guarda el exceso de efectivo de la caja hacia la Caja Fuerte.</small>
+        <select id="sel-caja-consignar" class="form-select mb-2" onchange="actualizarSugerenciaConsignacion()">
+          <option value="Caja Restaurante">Caja Restaurante</option>
+          <option value="Caja Piscina">Caja Piscina</option>
+        </select>
+        <div id="info-sugerencia-cf" class="small text-info fw-bold mb-2"></div>
+        <input type="text" id="in-monto-consignar" class="form-control form-control-lg mb-2" placeholder="$ Monto a guardar en Caja Fuerte" onkeyup="formatearMoneda(this)">
+        <button class="btn btn-success w-100 fw-bold" onclick="ejecutarConsignacionCF()">🔐 Consignar a Caja Fuerte</button>
+      </div>
+    </div>
+
+    <!-- 3. REGISTRAR GASTO / PAGO DE FACTURA -->
+    <div id="card-gastos-facturas" class="card shadow-sm mb-3">
+      <div class="card-body">
+        <h5 class="fw-bold text-danger mb-2">3. Registrar Gasto / Factura</h5>
+
+        <div id="banner-pagando-pendiente" class="alert alert-warning py-2 px-3 mb-2 justify-content-between align-items-center" style="display:none;">
+          <small class="fw-bold" id="texto-pagando-pendiente"></small>
+          <button class="btn btn-sm btn-outline-dark py-0" onclick="cancelarPagoPendiente()">✖</button>
+        </div>
+
+        <input type="text" id="in-gasto-concepto" class="form-control mb-2" placeholder="Concepto o Factura (Ej. Factura Cerveza #402)">
+
+        <label class="small text-muted fw-bold">Estado de la Factura / Gasto:</label>
+        <select id="modo-registro-gasto" class="form-select mb-2 fw-bold" onchange="cambiarModoRegistroGasto()">
+          <option value="pagada">💸 Pagada Ahora (Descuenta del saldo)</option>
+          <option value="pendiente">⏳ Factura Pendiente / Crédito (No descuenta saldo aún)</option>
+        </select>
+
+        <!-- SI ES PENDIENTE -->
+        <div id="bloque-factura-pendiente" style="display:none;">
+          <input type="text" id="in-pendiente-monto" class="form-control form-control-lg mb-2" placeholder="$ Valor Total de la Factura" onkeyup="formatearMoneda(this)">
+          <button class="btn btn-warning w-100 fw-bold" onclick="guardarPendienteDesdeApp()">⏳ Guardar como Factura Pendiente</button>
+        </div>
+
+        <!-- SI ES PAGADA AHORA -->
+        <div id="bloque-factura-pagada">
+          <label class="small text-muted fw-bold">¿De dónde sale el dinero?</label>
+          <select id="tipo-origen-gasto" class="form-select mb-2 border-danger" onchange="cambiarTipoOrigenGasto()">
+            <option value="unico">Un solo bolsillo (Caja o Caja Fuerte)</option>
+            <option value="mixto">🔀 Pago Mixto (Combinar varios bolsillos)</option>
+          </select>
+
+          <!-- BOLSILLO ÚNICO -->
+          <div id="bloque-origen-unico">
+            <select id="sel-bolsillo-unico" class="form-select mb-2">
+              <option value="Caja Restaurante - Ventas">🍽️ Caja Restaurante — Ventas del día</option>
+              <option value="Caja Restaurante - Base">🍽️ Caja Restaurante — Base</option>
+              <option value="Caja Piscina - Ventas">🏊 Caja Piscina — Ventas del día</option>
+              <option value="Caja Piscina - Base">🏊 Caja Piscina — Base</option>
+              <option value="Caja Fuerte">🔐 Caja Fuerte</option>
+            </select>
+            <input type="text" id="in-gasto-monto" class="form-control form-control-lg mb-2" placeholder="$ Monto Pagado" onkeyup="formatearMoneda(this)">
+          </div>
+
+          <!-- PAGO MIXTO -->
+          <div id="bloque-origen-mixto" class="p-2 rounded bg-input-theme border mb-2" style="display:none;">
+            <small class="text-muted d-block mb-2">Escribe cuánto sacaste de cada parte (deja vacío lo que no usaste):</small>
+            <div class="mb-2">
+              <label class="small fw-bold">🍽️ Caja Restaurante (Ventas del día):</label>
+              <input type="text" id="mix-rest-ventas" class="form-control form-control-sm" placeholder="$0" onkeyup="formatearMoneda(this); actualizarTotalMixto();">
+            </div>
+            <div class="mb-2">
+              <label class="small fw-bold">🍽️ Caja Restaurante (Base):</label>
+              <input type="text" id="mix-rest-base" class="form-control form-control-sm" placeholder="$0" onkeyup="formatearMoneda(this); actualizarTotalMixto();">
+            </div>
+            <div class="mb-2">
+              <label class="small fw-bold">🏊 Caja Piscina (Ventas del día):</label>
+              <input type="text" id="mix-pisc-ventas" class="form-control form-control-sm" placeholder="$0" onkeyup="formatearMoneda(this); actualizarTotalMixto();">
+            </div>
+            <div class="mb-2">
+              <label class="small fw-bold">🏊 Caja Piscina (Base):</label>
+              <input type="text" id="mix-pisc-base" class="form-control form-control-sm" placeholder="$0" onkeyup="formatearMoneda(this); actualizarTotalMixto();">
+            </div>
+            <div class="mb-2">
+              <label class="small fw-bold text-success">🔐 Caja Fuerte:</label>
+              <input type="text" id="mix-cf" class="form-control form-control-sm" placeholder="$0" onkeyup="formatearMoneda(this); actualizarTotalMixto();">
+            </div>
+            <div class="text-end fw-bold text-primary-theme">Total Mixto: <span id="total-mixto-label">$0</span></div>
+          </div>
+
+          <button class="btn btn-danger w-100 fw-bold" onclick="ejecutarGastoDetalladoApp()">💸 Registrar Pago / Gasto</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. LISTA DE FACTURAS PENDIENTES -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
+        <h6 class="fw-bold text-warning mb-2">⏳ Facturas Pendientes por Pagar</h6>
+        <div id="lista-facturas-pendientes" class="small text-muted">No hay facturas pendientes.</div>
+      </div>
+    </div>
+
+    <!-- 5. ADMINISTRAR CAJA FUERTE (SOLO SUPERADMIN) -->
+    <div id="card-admin-caja-fuerte" class="card shadow-sm mb-4 border-gold" style="display:none;">
+      <div class="card-body">
+        <h6 class="fw-bold text-primary-theme mb-1">🔐 Administración Caja Fuerte (Solo Superadmin)</h6>
+        <small class="text-muted d-block mb-2">Ingresa el saldo inicial o registra ingresos/retiros directos de la Caja Fuerte.</small>
+        <select id="sel-ajuste-cf" class="form-select mb-2">
+          <option value="fijar">Fijar saldo exacto (Saldo inicial / Arqueo)</option>
+          <option value="sumar">Sumar dinero a Caja Fuerte (+)</option>
+          <option value="restar">Retirar dinero de Caja Fuerte (-)</option>
+        </select>
+        <input type="text" id="in-concepto-cf" class="form-control mb-2" placeholder="Motivo (Ej. Saldo inicial $1.500.000)">
+        <input type="text" id="in-monto-cf" class="form-control form-control-lg mb-2" placeholder="$ Monto" onkeyup="formatearMoneda(this)">
+        <button class="btn btn-warning w-100 fw-bold" onclick="ejecutarAjusteCF()">Guardar Movimiento Caja Fuerte</button>
       </div>
     </div>
   </div>
@@ -712,32 +857,54 @@
     <button class="btn btn-outline-secondary btn-lg w-100 py-3" onclick="cambiarVista('detalle', 'Mesa')">Regresar a la Mesa</button>
   </div>
 
-  <div id="vista-cierre" class="vista container">
+<div id="vista-cierre" class="vista container">
     <input type="date" id="cierre-fecha" class="form-control form-control-lg mb-3">
     <select id="cierre-caja" class="form-select form-select-lg mb-3"></select>
     <button class="btn btn-primary btn-lg w-100 mb-3 py-3 shadow-sm" id="btn-calcular-cierre" onclick="calcularCierre()">Calcular Cuadre</button>
     
     <div id="resultado-cierre" class="card p-3 shadow-sm border-0 bg-input-theme" style="display:none;">
       <h6 class="text-muted mb-1">Base Inicial (+)</h6>
-      <h5 class="text-main-theme">$<span id="res-base"></span></h5>
+      <h5 class="text-main-theme mb-0">$<span id="res-base"></span></h5>
+      <small class="text-muted d-block mb-1" id="res-base-detalle"></small>
+
       <hr class="my-2" style="border-color: var(--border-color);">
-      <h6 class="text-muted mb-1">Ventas Efectivo (+)</h6>
-      <h5 class="text-success">$<span id="res-efe"></span></h5>
+      <h6 class="text-muted mb-1">Ventas Efectivo del Día (+)</h6>
+      <h5 class="text-success mb-0">$<span id="res-efe"></span></h5>
+      <small class="text-muted d-block mb-1" id="res-efe-detalle"></small>
+
       <hr class="my-2" style="border-color: var(--border-color);">
-      <h6 class="text-muted mb-1">Gastos / Salidas (-)</h6>
-      <h5 class="text-danger">-$<span id="res-gas"></span></h5>
+      <h6 class="text-muted mb-1">Consignado hoy a Caja Fuerte (-)</h6>
+      <h5 class="text-warning mb-1">-$<span id="res-cf-hoy"></span></h5>
+      <div id="lista-consignaciones-cierre" class="small text-muted mb-2 ps-2 border-start border-warning"></div>
+
+      <hr class="my-2" style="border-color: var(--border-color);">
+      <h6 class="text-muted mb-1">Gastos / Facturas Pagadas desde esta Caja (-)</h6>
+      <h5 class="text-danger mb-1">-$<span id="res-gas"></span></h5>
       <div id="lista-gastos" class="small text-muted mb-2 ps-2 border-start border-danger"></div>
       
-      <div class="p-2 rounded text-center mt-3 bg-card border-gold">
-        <h6 class="text-muted m-0">EFECTIVO ESPERADO EN CAJA</h6>
-        <h3 class="fw-bold text-primary-theme m-0">$<span id="res-esperado"></span></h3>
+      <div class="p-3 rounded text-center mt-3 bg-card border-gold">
+        <h6 class="text-muted m-0">EFECTIVO FÍSICO QUE DEBE QUEDAR EN CAJA</h6>
+        <h3 class="fw-bold text-primary-theme my-1">$<span id="res-esperado"></span></h3>
+        <small class="text-muted d-block" id="res-desglose-fisico"></small>
       </div>
       
       <hr style="border-color: var(--border-color);">
       <h6 class="text-muted mb-1">Ventas por Transferencia (Bancos)</h6>
       <h5 class="text-info">$<span id="res-tra"></span></h5>
+
+      <hr style="border-color: var(--border-color);">
+      <div class="p-2 rounded bg-card border">
+        <h6 class="fw-bold text-success mb-1">🔐 Estado de Caja Fuerte (Compartida)</h6>
+        <div class="small text-main-theme mb-1">Saldo actual acumulado en Caja Fuerte: <b class="text-success fs-6">$<span id="res-saldo-cf-total"></span></b></div>
+        <div class="small text-danger mb-1">Pagos realizados hoy directo desde Caja Fuerte: <b>-$<span id="res-gastos-cf-hoy"></span></b></div>
+        <div id="lista-gastos-cf-cierre" class="small text-muted ps-2 border-start border-danger"></div>
+      </div>
+
+      <div class="p-2 rounded bg-card border mt-2">
+        <h6 class="fw-bold text-warning mb-1">⏳ Facturas Pendientes (No descontadas aún)</h6>
+        <div id="lista-pendientes-cierre" class="small text-muted">Ninguna</div>
+      </div>
     </div>
-  </div>
 
   <!-- ========================================================= -->
   <!-- VISTAS EXCLUSIVAS SUPERADMIN                              -->
@@ -1743,71 +1910,429 @@ function actualizarTextoBotonAbrir() {
     });
   }
 
-  function guardarMovimientoCaja(tipo) {
-    let fecha = obtenerFechaHoyLocal();
-    let caja = (tipo === 'Base') ? document.getElementById('sel-caja-base').value : document.getElementById('sel-caja-gasto').value;
-    let montoRaw = (tipo === 'Base') ? document.getElementById('in-base').value : document.getElementById('in-gasto-monto').value;
-    let monto = Number(montoRaw.replace(/\D/g, ''));
-    let concepto = (tipo === 'Base') ? 'Ingreso de Base' : document.getElementById('in-gasto-concepto').value;
+// =========================================================
+  // LÓGICA DE CONTROL DE CAJA, CAJA FUERTE Y CIERRE DETALLADO
+  // =========================================================
+  let cacheEstadoCajas = null;
+  let facturaPendienteActiva = null;
 
-    if(!caja) return mostrarAlerta("Error", "Selecciona una caja.");
-    if(monto <= 0) return mostrarAlerta("Error", "Ingresa un monto válido.");
-    if(tipo === 'Gasto' && !concepto) return mostrarAlerta("Error", "Escribe el concepto del gasto.");
+  function _numMoneda(id) {
+    const el = document.getElementById(id);
+    if (!el || !el.value) return 0;
+    return Number(el.value.toString().replace(/\D/g, '')) || 0;
+  }
 
-    llamarBackend('hacerCierre', {fecha: fecha, caja: caja}).then(res => {
-      if (!res) {
-        ejecutarGuardadoCaja(fecha, caja, tipo, concepto, monto);
-        return;
+  function cargarEstadoCajas(silencioso = true) {
+    const fecha = obtenerFechaHoyLocal();
+    if (document.getElementById('card-admin-caja-fuerte')) {
+      const esSuper = (typeof esRolSuperAdmin === 'function') ? esRolSuperAdmin() : false;
+      document.getElementById('card-admin-caja-fuerte').style.display = esSuper ? 'block' : 'none';
+    }
+
+    llamarBackend('obtenerEstadoCajas', { fecha: fecha }).then(res => {
+      if (!res || res.error) return;
+      cacheEstadoCajas = res;
+
+      const rest = res.cajas['Caja Restaurante'] || { efectivoEsperado: 0, baseDisponible: 0, ventasDisponible: 0 };
+      const pisc = res.cajas['Caja Piscina'] || { efectivoEsperado: 0, baseDisponible: 0, ventasDisponible: 0 };
+
+      if (document.getElementById('saldo-vivo-rest')) {
+        document.getElementById('saldo-vivo-rest').innerText = '$' + rest.efectivoEsperado.toLocaleString('es-CO');
+        document.getElementById('detalle-vivo-rest').innerText = `Base: $${rest.baseDisponible.toLocaleString('es-CO')} | Ventas: $${rest.ventasDisponible.toLocaleString('es-CO')}`;
+
+        document.getElementById('saldo-vivo-pisc').innerText = '$' + pisc.efectivoEsperado.toLocaleString('es-CO');
+        document.getElementById('detalle-vivo-pisc').innerText = `Base: $${pisc.baseDisponible.toLocaleString('es-CO')} | Ventas: $${pisc.ventasDisponible.toLocaleString('es-CO')}`;
+
+        document.getElementById('saldo-vivo-cf').innerText = '$' + Number(res.cajaFuerte || 0).toLocaleString('es-CO');
       }
-      if(tipo === 'Base') {
-        if(res.base > 0) { mostrarAlerta("Atención", "Ya existe una base registrada para esta caja hoy."); } 
-        else { ejecutarGuardadoCaja(fecha, caja, tipo, concepto, monto); }
-      } else if (tipo === 'Gasto') {
-        if(monto > res.efectivoEsperado) {
-          tempGastoCaja = caja; tempGastoConcepto = concepto; tempGastoMonto = monto;
-          document.getElementById('gasto-exceso-mensaje').innerText = `Estás intentando gastar $${monto.toLocaleString('es-CO')}, pero el efectivo esperado en caja es de solo $${res.efectivoEsperado.toLocaleString('es-CO')}.`;
-          document.getElementById('modal-gasto-exceso').style.display = 'flex';
-        } else { ejecutarGuardadoCaja(fecha, caja, tipo, concepto, monto); }
+
+      // Revisar alerta de $1.000.000 en cualquiera de las dos cajas
+      let mensajesAlerta = [];
+      if (rest.alertaMillon) {
+        mensajesAlerta.push(`⚠️ Caja Restaurante tiene $${rest.efectivoEsperado.toLocaleString('es-CO')} en efectivo.`);
+      }
+      if (pisc.alertaMillon) {
+        mensajesAlerta.push(`⚠️ Caja Piscina tiene $${pisc.efectivoEsperado.toLocaleString('es-CO')} en efectivo.`);
+      }
+
+      const boxAlerta = document.getElementById('alerta-millon-caja');
+      if (boxAlerta) {
+        if (mensajesAlerta.length > 0) {
+          document.getElementById('texto-alerta-millon').innerHTML =
+            mensajesAlerta.join('<br>') + '<br><small>Superaste el tope de $1.000.000. Libera efectivo consignando a Caja Fuerte.</small>';
+          boxAlerta.style.display = 'block';
+        } else {
+          boxAlerta.style.display = 'none';
+        }
+      }
+
+      // Si se detectó justo después de cobrar una venta, lanzar aviso emergente inmediato a la cajera
+      if (!silencioso && mensajesAlerta.length > 0) {
+        mostrarAlerta(
+          "🚨 ¡Libera Caja hacia Caja Fuerte!",
+          mensajesAlerta.join(' ') + " Tienes $1.000.000 o más en caja. Ve a Control de Caja y consigna el excedente a Caja Fuerte."
+        );
+      }
+
+      actualizarSugerenciaConsignacion();
+      renderizarFacturasPendientes(res.pendientes || []);
+    });
+  }
+
+  function registrarBaseDesdeApp() {
+    const fecha = obtenerFechaHoyLocal();
+    const caja = document.getElementById('sel-caja-base').value;
+    const monto = _numMoneda('in-base');
+
+    if (!caja) return mostrarAlerta("Error", "Selecciona una caja.");
+    if (monto <= 0) return mostrarAlerta("Error", "Ingresa un monto válido mayor a $0.");
+    if (monto > 500000) {
+      return mostrarAlerta(
+        "Tope Máximo Excedido",
+        "La base inicial máxima permitida en caja es de $500.000. El dinero restante debes guardarlo en Caja Fuerte."
+      );
+    }
+
+    llamarBackend('registrarBaseCaja', { fecha: fecha, caja: caja, monto: monto }).then(res => {
+      if (!res || res.error) {
+        return mostrarAlerta("Atención", (res && res.error) ? res.error : "No se pudo guardar la base.");
+      }
+      document.getElementById('in-base').value = '';
+      mostrarAlerta("Éxito", `Base de $${monto.toLocaleString('es-CO')} registrada en ${caja}.`, "success");
+      cargarEstadoCajas(true);
+    });
+  }
+
+  function actualizarSugerenciaConsignacion() {
+    const infoEl = document.getElementById('info-sugerencia-cf');
+    if (!infoEl || !cacheEstadoCajas) return;
+    const caja = document.getElementById('sel-caja-consignar').value;
+    const info = cacheEstadoCajas.cajas[caja];
+    if (!info) return;
+
+    const actual = info.efectivoEsperado || 0;
+    if (actual > 500000) {
+      const paraDejar500 = actual - 500000;
+      const paraDejar700 = actual > 700000 ? actual - 700000 : 0;
+      let texto = `En ${caja} hay $${actual.toLocaleString('es-CO')}. Sugerido consignar $${paraDejar500.toLocaleString('es-CO')} (para dejar $500.000)`;
+      if (paraDejar700 > 0) {
+        texto += ` o $${paraDejar700.toLocaleString('es-CO')} (para dejar $700.000).`;
+      }
+      infoEl.innerText = texto;
+    } else {
+      infoEl.innerText = `Efectivo actual en ${caja}: $${actual.toLocaleString('es-CO')}.`;
+    }
+  }
+
+  function ejecutarConsignacionCF() {
+    const fecha = obtenerFechaHoyLocal();
+    const caja = document.getElementById('sel-caja-consignar').value;
+    const monto = _numMoneda('in-monto-consignar');
+
+    if (!caja) return mostrarAlerta("Error", "Selecciona la caja de origen.");
+    if (monto <= 0) return mostrarAlerta("Error", "Ingresa el monto a consignar.");
+
+    llamarBackend('consignarACajaFuerte', { fecha: fecha, caja: caja, monto: monto }).then(res => {
+      if (!res || res.error) {
+        return mostrarAlerta("Error", (res && res.error) ? res.error : "No se pudo consignar a Caja Fuerte.");
+      }
+      document.getElementById('in-monto-consignar').value = '';
+      mostrarAlerta(
+        "Caja Liberada",
+        `Se consignaron $${monto.toLocaleString('es-CO')} desde ${caja} hacia la Caja Fuerte.`,
+        "success"
+      );
+      cargarEstadoCajas(true);
+    });
+  }
+
+  function cambiarModoRegistroGasto() {
+    const modo = document.getElementById('modo-registro-gasto').value;
+    document.getElementById('bloque-factura-pagada').style.display = (modo === 'pagada') ? 'block' : 'none';
+    document.getElementById('bloque-factura-pendiente').style.display = (modo === 'pendiente') ? 'block' : 'none';
+  }
+
+  function cambiarTipoOrigenGasto() {
+    const tipo = document.getElementById('tipo-origen-gasto').value;
+    document.getElementById('bloque-origen-unico').style.display = (tipo === 'unico') ? 'block' : 'none';
+    document.getElementById('bloque-origen-mixto').style.display = (tipo === 'mixto') ? 'block' : 'none';
+  }
+
+  function actualizarTotalMixto() {
+    const total =
+      _numMoneda('mix-rest-ventas') +
+      _numMoneda('mix-rest-base') +
+      _numMoneda('mix-pisc-ventas') +
+      _numMoneda('mix-pisc-base') +
+      _numMoneda('mix-cf');
+    document.getElementById('total-mixto-label').innerText = '$' + total.toLocaleString('es-CO');
+  }
+
+  function limpiarFormularioGasto() {
+    document.getElementById('in-gasto-concepto').value = '';
+    document.getElementById('in-gasto-monto').value = '';
+    document.getElementById('in-pendiente-monto').value = '';
+    ['mix-rest-ventas', 'mix-rest-base', 'mix-pisc-ventas', 'mix-pisc-base', 'mix-cf'].forEach(id => {
+      if (document.getElementById(id)) document.getElementById(id).value = '';
+    });
+    if (document.getElementById('total-mixto-label')) {
+      document.getElementById('total-mixto-label').innerText = '$0';
+    }
+    cancelarPagoPendiente();
+  }
+
+  function ejecutarGastoDetalladoApp() {
+    const fecha = obtenerFechaHoyLocal();
+    const concepto = document.getElementById('in-gasto-concepto').value.trim();
+    const tipoOrigen = document.getElementById('tipo-origen-gasto').value;
+
+    if (!concepto) return mostrarAlerta("Error", "Escribe el concepto o nombre de la factura.");
+
+    let desglose = [];
+    if (tipoOrigen === 'unico') {
+      const bolsillo = document.getElementById('sel-bolsillo-unico').value;
+      const monto = _numMoneda('in-gasto-monto');
+      if (monto <= 0) return mostrarAlerta("Error", "Ingresa el monto pagado.");
+      desglose.push({ bolsillo: bolsillo, monto: monto });
+    } else {
+      const pares = [
+        { bolsillo: 'Caja Restaurante - Ventas', monto: _numMoneda('mix-rest-ventas') },
+        { bolsillo: 'Caja Restaurante - Base', monto: _numMoneda('mix-rest-base') },
+        { bolsillo: 'Caja Piscina - Ventas', monto: _numMoneda('mix-pisc-ventas') },
+        { bolsillo: 'Caja Piscina - Base', monto: _numMoneda('mix-pisc-base') },
+        { bolsillo: 'Caja Fuerte', monto: _numMoneda('mix-cf') }
+      ];
+      desglose = pares.filter(p => p.monto > 0);
+      if (desglose.length === 0) return mostrarAlerta("Error", "Ingresa al menos un monto en el pago mixto.");
+    }
+
+    const pendId = facturaPendienteActiva ? facturaPendienteActiva.id : null;
+
+    llamarBackend('registrarGastoDetallado', {
+      fecha: fecha,
+      concepto: concepto,
+      desglose: desglose,
+      pendienteId: pendId
+    }).then(res => {
+      if (!res || res.error) {
+        return mostrarAlerta("Saldo Insuficiente o Error", (res && res.error) ? res.error : "No se pudo registrar el pago.");
+      }
+      limpiarFormularioGasto();
+      mostrarAlerta("Pago Registrado", "El gasto/factura fue descontado correctamente.", "success");
+      cargarEstadoCajas(true);
+    });
+  }
+
+  function guardarPendienteDesdeApp() {
+    const fecha = obtenerFechaHoyLocal();
+    const concepto = document.getElementById('in-gasto-concepto').value.trim();
+    const monto = _numMoneda('in-pendiente-monto');
+
+    if (!concepto) return mostrarAlerta("Error", "Escribe el concepto o proveedor de la factura.");
+    if (monto <= 0) return mostrarAlerta("Error", "Ingresa el valor total de la factura pendiente.");
+
+    llamarBackend('guardarFacturaPendiente', { fecha: fecha, concepto: concepto, monto: monto }).then(res => {
+      if (!res || res.error) {
+        return mostrarAlerta("Error", (res && res.error) ? res.error : "No se pudo guardar la factura pendiente.");
+      }
+      limpiarFormularioGasto();
+      mostrarAlerta("Guardada", "Factura anotada como pendiente (no descuenta saldo hasta pagarla).", "success");
+      cargarEstadoCajas(true);
+    });
+  }
+
+  function renderizarFacturasPendientes(lista) {
+    const cont = document.getElementById('lista-facturas-pendientes');
+    if (!cont) return;
+    if (!lista || lista.length === 0) {
+      cont.innerHTML = '<span class="text-muted">No hay facturas pendientes por pagar.</span>';
+      return;
+    }
+
+    cont.innerHTML = lista.map(p => `
+      <div class="d-flex justify-content-between align-items-center p-2 mb-2 rounded bg-input-theme border">
+        <div>
+          <div class="fw-bold text-main-theme">${p.concepto}</div>
+          <small class="text-muted">${p.fecha} • <b class="text-warning">$${Number(p.monto).toLocaleString('es-CO')}</b></small>
+        </div>
+        <div class="d-flex gap-1">
+          <button class="btn btn-sm btn-success fw-bold" onclick="prepararPagoPendiente('${p.id}')">💸 Pagar</button>
+          <button class="btn btn-sm btn-outline-danger" onclick="eliminarPendienteDesdeApp('${p.id}')">🗑️</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function prepararPagoPendiente(id) {
+    if (!cacheEstadoCajas || !cacheEstadoCajas.pendientes) return;
+    const item = cacheEstadoCajas.pendientes.find(p => String(p.id) === String(id));
+    if (!item) return;
+
+    facturaPendienteActiva = item;
+    document.getElementById('modo-registro-gasto').value = 'pagada';
+    cambiarModoRegistroGasto();
+
+    document.getElementById('in-gasto-concepto').value = item.concepto;
+    document.getElementById('in-gasto-monto').value = Number(item.monto).toLocaleString('es-CO');
+    document.getElementById('texto-pagando-pendiente').innerText = `Pagando factura pendiente: ${item.concepto} ($${Number(item.monto).toLocaleString('es-CO')})`;
+    document.getElementById('banner-pagando-pendiente').style.display = 'flex';
+    document.getElementById('card-gastos-facturas').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function cancelarPagoPendiente() {
+    facturaPendienteActiva = null;
+    const banner = document.getElementById('banner-pagando-pendiente');
+    if (banner) banner.style.display = 'none';
+  }
+
+  function eliminarPendienteDesdeApp(id) {
+    llamarBackend('eliminarFacturaPendiente', { id: id }).then(res => {
+      if (res && res.ok) {
+        cargarEstadoCajas(true);
       }
     });
   }
 
-  function forzarGasto() {
-    let fecha = obtenerFechaHoyLocal();
-    document.getElementById('modal-gasto-exceso').style.display = 'none';
-    ejecutarGuardadoCaja(fecha, tempGastoCaja, 'Gasto', tempGastoConcepto, tempGastoMonto);
-  }
+  function ejecutarAjusteCF() {
+    const fecha = obtenerFechaHoyLocal();
+    const tipoAjuste = document.getElementById('sel-ajuste-cf').value;
+    const concepto = document.getElementById('in-concepto-cf').value.trim();
+    const monto = _numMoneda('in-monto-cf');
 
-  function ejecutarGuardadoCaja(fecha, caja, tipo, concepto, monto) {
-    mostrarAlerta("Éxito", `${tipo} registrado.`, "success");
-    document.getElementById('in-base').value = ''; document.getElementById('in-gasto-concepto').value = ''; document.getElementById('in-gasto-monto').value = '';
-    llamarBackend('registrarMovCaja', {fecha: fecha, caja: caja, tipo: tipo, concepto: concepto, monto: monto});
+    if (tipoAjuste !== 'fijar' && monto <= 0) {
+      return mostrarAlerta("Error", "Ingresa un monto válido mayor a $0.");
+    }
+
+    llamarBackend('ajustarSaldoCajaFuerte', {
+      fecha: fecha,
+      tipoAjuste: tipoAjuste,
+      monto: monto,
+      concepto: concepto
+    }).then(res => {
+      if (!res || res.error) {
+        return mostrarAlerta("Error", (res && res.error) ? res.error : "No se pudo actualizar la Caja Fuerte.");
+      }
+      document.getElementById('in-concepto-cf').value = '';
+      document.getElementById('in-monto-cf').value = '';
+      mostrarAlerta("Caja Fuerte Actualizada", `Nuevo saldo en Caja Fuerte: $${Number(res.cajaFuerte).toLocaleString('es-CO')}.`, "success");
+      cargarEstadoCajas(true);
+    });
   }
 
   function calcularCierre() {
-    let fecha = document.getElementById('cierre-fecha').value, caja = document.getElementById('cierre-caja').value;
-    if(!fecha || !caja) return mostrarAlerta("Faltan Filtros", "Selecciona una fecha y una Caja.");
-    
-    let btn = document.getElementById('btn-calcular-cierre');
-    btn.disabled = true; btn.innerText = "Calculando...";
+    const rawFecha = document.getElementById('cierre-fecha').value;
+    const caja = document.getElementById('cierre-caja').value;
+    if (!rawFecha || !caja) return mostrarAlerta("Error", "Selecciona fecha y caja.");
 
-    llamarBackend('hacerCierre', {fecha: fecha, caja: caja}).then(res => {
-      btn.disabled = false; btn.innerText = "Calcular Cuadre";
-      if(!res) return mostrarAlerta("Sin Conexión", "Necesitas internet para consultar el cuadre de caja en Google Sheets.");
-      document.getElementById('res-base').innerText = res.base.toLocaleString('es-CO');
-      document.getElementById('res-efe').innerText = res.efectivo.toLocaleString('es-CO');
-      document.getElementById('res-gas').innerText = res.gastos.toLocaleString('es-CO');
-      document.getElementById('res-esperado').innerText = res.efectivoEsperado.toLocaleString('es-CO');
-      document.getElementById('res-tra').innerText = res.transferencia.toLocaleString('es-CO');
-      
-      let htmlGastos = '';
-      if(res.listaGastos.length > 0) { res.listaGastos.forEach(g => { htmlGastos += `<div>- ${g.concepto}: $${g.monto.toLocaleString('es-CO')}</div>`; }); } 
-      else { htmlGastos = "Sin gastos registrados."; }
-      document.getElementById('lista-gastos').innerHTML = htmlGastos;
+    const p = rawFecha.split('-');
+    const fecha = (p.length === 3) ? `${p[2]}/${p[1]}/${p[0]}` : rawFecha;
+
+    const btn = document.getElementById('btn-calcular-cierre');
+    btn.disabled = true;
+    btn.innerText = 'Calculando cuadre...';
+
+    llamarBackend('hacerCierreDetallado', { fecha: fecha, caja: caja }).then(res => {
+      btn.disabled = false;
+      btn.innerText = 'Calcular Cuadre';
+      if (!res || res.error) {
+        return mostrarAlerta("Error", (res && res.error) ? res.error : "No se pudo calcular el cierre.");
+      }
 
       document.getElementById('resultado-cierre').style.display = 'block';
+
+      // Base
+      document.getElementById('res-base').innerText = Number(res.baseInicial || 0).toLocaleString('es-CO');
+      document.getElementById('res-base-detalle').innerText =
+        `Gastado de Base: -$${Number(res.gastosBase || 0).toLocaleString('es-CO')} | Consignado de Base: -$${Number(res.consignadoDesdeBase || 0).toLocaleString('es-CO')} | Queda de Base: $${Number(res.baseRestante || 0).toLocaleString('es-CO')}`;
+
+      // Ventas Efectivo
+      document.getElementById('res-efe').innerText = Number(res.ventasEfectivo || 0).toLocaleString('es-CO');
+      document.getElementById('res-efe-detalle').innerText =
+        `Gastado de Ventas: -$${Number(res.gastosVentas || 0).toLocaleString('es-CO')} | Consignado de Ventas: -$${Number(res.consignadoDesdeVentas || 0).toLocaleString('es-CO')} | Queda de Ventas: $${Number(res.ventasRestante || 0).toLocaleString('es-CO')}`;
+
+      // Consignado hoy a Caja Fuerte
+      document.getElementById('res-cf-hoy').innerText = Number(res.consignadoCF || 0).toLocaleString('es-CO');
+      const divCons = document.getElementById('lista-consignaciones-cierre');
+      if (res.listaConsignaciones && res.listaConsignaciones.length > 0) {
+        divCons.innerHTML = res.listaConsignaciones.map(c =>
+          `<div>• ${c.concepto}: <b>$${Number(c.monto).toLocaleString('es-CO')}</b> <small>(${c.origen})</small></div>`
+        ).join('');
+      } else {
+        divCons.innerHTML = '<div>Sin consignaciones a Caja Fuerte hoy.</div>';
+      }
+
+      // Gastos discriminados por Base y Ventas
+      document.getElementById('res-gas').innerText = Number(res.gastos || 0).toLocaleString('es-CO');
+      let htmlGastos = '';
+      if (res.listaGastosBase && res.listaGastosBase.length > 0) {
+        htmlGastos += '<div class="fw-bold text-warning mt-1">Pagados desde Base:</div>';
+        htmlGastos += res.listaGastosBase.map(g => `<div>• ${g.concepto}: -$${Number(g.monto).toLocaleString('es-CO')}</div>`).join('');
+      }
+      if (res.listaGastosVentas && res.listaGastosVentas.length > 0) {
+        htmlGastos += '<div class="fw-bold text-danger mt-1">Pagados desde Ventas del día:</div>';
+        htmlGastos += res.listaGastosVentas.map(g => `<div>• ${g.concepto}: -$${Number(g.monto).toLocaleString('es-CO')}</div>`).join('');
+      }
+      if (!htmlGastos) htmlGastos = '<div>Sin gastos pagados desde esta caja hoy.</div>';
+      document.getElementById('lista-gastos').innerHTML = htmlGastos;
+
+      // Efectivo físico esperado
+      document.getElementById('res-esperado').innerText = Number(res.efectivoEsperado || 0).toLocaleString('es-CO');
+      document.getElementById('res-desglose-fisico').innerText =
+        `(Base restante $${Number(res.baseRestante || 0).toLocaleString('es-CO')} + Ventas restantes $${Number(res.ventasRestante || 0).toLocaleString('es-CO')})`;
+
+      // Transferencias
+      document.getElementById('res-tra').innerText = Number(res.transferencia || 0).toLocaleString('es-CO');
+
+      // Estado Caja Fuerte
+      document.getElementById('res-saldo-cf-total').innerText = Number(res.saldoCajaFuerteActual || 0).toLocaleString('es-CO');
+      document.getElementById('res-gastos-cf-hoy').innerText = Number(res.gastosCajaFuerteHoy || 0).toLocaleString('es-CO');
+      const divGastosCF = document.getElementById('lista-gastos-cf-cierre');
+      if (res.listaGastosCajaFuerte && res.listaGastosCajaFuerte.length > 0) {
+        divGastosCF.innerHTML = res.listaGastosCajaFuerte.map(g =>
+          `<div>• ${g.concepto}: -$${Number(g.monto).toLocaleString('es-CO')}</div>`
+        ).join('');
+      } else {
+        divGastosCF.innerHTML = '<div>Sin pagos realizados desde Caja Fuerte hoy.</div>';
+      }
+
+      // Facturas pendientes
+      const divPend = document.getElementById('lista-pendientes-cierre');
+      if (res.facturasPendientes && res.facturasPendientes.length > 0) {
+        divPend.innerHTML = res.facturasPendientes.map(fp =>
+          `<div>• ${fp.concepto} (${fp.fecha}): <b>$${Number(fp.monto).toLocaleString('es-CO')}</b></div>`
+        ).join('');
+      } else {
+        divPend.innerHTML = '<div>Ninguna factura pendiente.</div>';
+      }
     });
   }
+
+  // Auto-carga de saldos al entrar a Control de Caja y alerta automática tras cobrar una mesa
+  (function iniciarVigilanciaCaja() {
+    const vistaCajaEl = document.getElementById('vista-caja');
+    if (vistaCajaEl && typeof MutationObserver !== 'undefined') {
+      const obs = new MutationObserver(() => {
+        if (vistaCajaEl.classList.contains('activa') || vistaCajaEl.style.display === 'block') {
+          cargarEstadoCajas(true);
+        }
+      });
+      obs.observe(vistaCajaEl, { attributes: true, attributeFilter: ['class', 'style'] });
+    }
+
+    if (typeof llamarBackend === 'function' && !llamarBackend._envueltoCaja) {
+      const originalLlamarBackend = llamarBackend;
+      llamarBackend = function(action, payload) {
+        const promesa = originalLlamarBackend.apply(this, arguments);
+        if (action === 'pagarComanda' && promesa && typeof promesa.then === 'function') {
+          promesa.then(() => {
+            setTimeout(() => cargarEstadoCajas(false), 600);
+          });
+        }
+        return promesa;
+      };
+      llamarBackend._envueltoCaja = true;
+    }
+  })();
 
   // =========================================================================
   // MÓDULO: PLANILLA DE CONSUMO INTERNO DE EMPLEADOS (100% INSTANTÁNEO)
