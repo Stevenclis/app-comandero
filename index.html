@@ -186,7 +186,7 @@
     </div>
   </div>
 
-  <div id="alerta-custom" class="alerta-overlay">
+  <div id="alerta-custom" class="alerta-overlay" style="z-index: 10060;">
     <div class="alerta-caja">
       <div id="alerta-icono" class="alerta-icono">⚠️</div>
       <h4 id="alerta-titulo" class="fw-bold mb-2">Atención</h4>
@@ -195,7 +195,7 @@
     </div>
   </div>
 
-  <div id="modal-confirmar" class="alerta-overlay">
+  <div id="modal-confirmar" class="alerta-overlay" style="z-index: 10050;">
     <div class="alerta-caja">
       <div class="alerta-icono text-danger" id="conf-icono">🗑️</div>
       <h4 id="conf-titulo" class="fw-bold mb-2 text-danger">Confirmar</h4>
@@ -310,7 +310,7 @@
 
   <datalist id="lista-mesas"></datalist>
   <datalist id="lista-categorias"></datalist>
-  <datalist id="lista-productos-consumo"></datalist> <!-- NUEVO: Datalist para buscar productos en planilla -->
+  <datalist id="lista-productos-consumo"></datalist>
 
   <div id="vista-login" class="vista activa container pt-4 text-center">
     <img src="logo.png" class="logo-login mx-auto d-block" alt="Altamira">
@@ -1329,7 +1329,6 @@
     });
     selEmp.innerHTML = opEmp;
 
-    // Actualizar el Datalist del buscador de productos para Consumos
     let datalistProd = document.getElementById('lista-productos-consumo');
     let opProd = '';
     if (menuDiaData && menuDiaData.estado === 'Activo') {
