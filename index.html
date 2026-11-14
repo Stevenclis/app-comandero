@@ -54,7 +54,6 @@
     
     .btn-flotante-add { position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(145deg, var(--gold-main), var(--gold-hover)); color: #ffffff; font-size: 30px; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4); z-index: 99; cursor: pointer;}
     
-    /* BOTONES DE CATEGORÍA Y PRODUCTO */
     .btn-categoria { height: 74px; font-weight: 700; font-size: 15px; line-height: 1.2; padding: 10px; display: flex; flex-direction: column; justify-content: center; align-items: center; background: var(--bg-card); border: 1.5px solid var(--gold-main); color: var(--text-main); border-radius: 14px; box-shadow: 0 3px 8px var(--shadow-color); transition: transform 0.1s; }
     .btn-categoria:active { transform: scale(0.96); background: var(--gold-main); color: #ffffff; }
 
@@ -155,7 +154,10 @@
 
   <div class="offcanvas offcanvas-start" tabindex="-1" id="menuLateral">
     <div class="offcanvas-header text-main-theme">
-      <h5 class="offcanvas-title fw-bold text-primary-theme">👤 <span id="label-usuario-activo">Usuario</span></h5>
+      <div>
+        <h5 class="offcanvas-title fw-bold text-primary-theme m-0">👤 <span id="label-usuario-activo">Usuario</span></h5>
+        <small class="text-muted text-uppercase" id="label-rol-activo" style="font-size: 11px;"></small>
+      </div>
       <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" style="filter: invert(1);"></button>
     </div>
     <div class="offcanvas-body p-0">
@@ -164,6 +166,13 @@
       <a class="menu-item" style="color: #0ea5e9 !important;" id="btn-menu-caja" onclick="intentarNavegar(() => cambiarVista('caja', 'Control de Caja'))" data-bs-dismiss="offcanvas" style="display:none;">💵 Control de Caja</a>
       <a class="menu-item" onclick="intentarNavegar(cargarComandasCerradas)" data-bs-dismiss="offcanvas">✅ Historial Pagadas</a>
       <a class="menu-item" id="btn-menu-cierre" onclick="intentarNavegar(() => cambiarVista('cierre', 'Cierre de Caja'))" data-bs-dismiss="offcanvas" style="display:none;">💰 Cierre del Día</a>
+
+      <!-- OPCIONES EXCLUSIVAS SUPERADMIN -->
+      <div id="seccion-superadmin" style="display:none; border-top: 2px solid var(--gold-main);">
+        <div class="px-3 pt-2 pb-1 small fw-bold text-primary-theme text-uppercase" style="font-size: 11px; letter-spacing: 1px;">👑 Administración</div>
+        <a class="menu-item" onclick="intentarNavegar(abrirGestionUsuarios)" data-bs-dismiss="offcanvas">👥 Gestión Usuarios</a>
+        <a class="menu-item" onclick="intentarNavegar(abrirGestionCarta)" data-bs-dismiss="offcanvas">🍽️ Gestión Carta</a>
+      </div>
 
       <div class="p-3 mt-auto border-top" style="border-color: var(--border-color) !important;">
         <button class="btn btn-outline-danger w-100 fw-bold py-2" onclick="cerrarSesion()" data-bs-dismiss="offcanvas">Cerrar Sesión</button>
@@ -177,6 +186,18 @@
       <h4 id="alerta-titulo" class="fw-bold mb-2">Atención</h4>
       <p id="alerta-mensaje" class="text-muted mb-4">Mensaje</p>
       <button class="btn btn-primary btn-lg w-100 fw-bold" onclick="cerrarAlerta()">Entendido</button>
+    </div>
+  </div>
+
+  <div id="modal-confirmar" class="alerta-overlay">
+    <div class="alerta-caja">
+      <div class="alerta-icono text-danger">🗑️</div>
+      <h4 id="conf-titulo" class="fw-bold mb-2 text-danger">Confirmar</h4>
+      <p id="conf-mensaje" class="text-muted mb-4">¿Estás seguro?</p>
+      <div class="d-flex gap-2">
+        <button class="btn btn-secondary w-50 fw-bold py-2" onclick="cerrarConfirmar()">Cancelar</button>
+        <button class="btn btn-danger w-50 fw-bold py-2" id="btn-conf-aceptar">Eliminar</button>
+      </div>
     </div>
   </div>
 
@@ -221,6 +242,7 @@
   </div>
 
   <datalist id="lista-mesas"></datalist>
+  <datalist id="lista-categorias"></datalist>
 
   <div id="vista-login" class="vista activa container pt-4 text-center">
     <img src="logo.png" class="logo-login mx-auto d-block" alt="Altamira">
@@ -369,6 +391,81 @@
     </div>
   </div>
 
+  <!-- ========================================================= -->
+  <!-- VISTAS EXCLUSIVAS SUPERADMIN                              -->
+  <!-- ========================================================= -->
+
+  <div id="vista-usuarios" class="vista container">
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="fw-bold text-primary-theme m-0" id="form-usu-titulo">Nuevo Trabajador</h5>
+          <button class="btn btn-sm btn-outline-secondary" id="btn-cancelar-usu" onclick="limpiarFormUsuario()" style="display:none;">Cancelar edición</button>
+        </div>
+        <input type="hidden" id="usu-pin-original" value="">
+        <div class="mb-2">
+          <label class="small text-muted fw-bold">Nombre Completo</label>
+          <input type="text" id="usu-nombre" class="form-control" placeholder="Ej. Carlos Pérez">
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col-5">
+            <label class="small text-muted fw-bold">PIN (4 dígitos)</label>
+            <input type="text" id="usu-pin" class="form-control text-center fw-bold" maxlength="4" inputmode="numeric" placeholder="0000" oninput="this.value=this.value.replace(/\D/g,'')">
+          </div>
+          <div class="col-7">
+            <label class="small text-muted fw-bold">Rol en el Sistema</label>
+            <select id="usu-rol" class="form-select">
+              <option value="mesero">Mesero</option>
+              <option value="cajero">Cajero</option>
+              <option value="superadmin">Superadmin (Dueño)</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary w-100 fw-bold py-2" id="btn-guardar-usu" onclick="guardarUsuarioAdmin()">Guardar Usuario</button>
+      </div>
+    </div>
+
+    <h6 class="text-muted fw-bold mb-2 text-uppercase" style="font-size: 12px;">Equipo Registrado</h6>
+    <div id="lista-admin-usuarios"></div>
+  </div>
+
+  <div id="vista-carta" class="vista container">
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="fw-bold text-primary-theme m-0" id="form-prod-titulo">Nuevo Producto</h5>
+          <button class="btn btn-sm btn-outline-secondary" id="btn-cancelar-prod" onclick="limpiarFormProducto()" style="display:none;">Cancelar edición</button>
+        </div>
+        <input type="hidden" id="prod-nombre-original" value="">
+        <div class="mb-2">
+          <label class="small text-muted fw-bold">Categoría (Elige o escribe una nueva)</label>
+          <input type="text" id="prod-categoria" list="lista-categorias" class="form-control" placeholder="Ej. Asados, Alcohol, Bebidas Frias...">
+        </div>
+        <div class="mb-2">
+          <label class="small text-muted fw-bold">Nombre del Producto</label>
+          <input type="text" id="prod-nombre" class="form-control" placeholder="Ej. Churrasco 350g">
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col-6">
+            <label class="small text-muted fw-bold">Precio ($)</label>
+            <input type="text" id="prod-precio" class="form-control fw-bold" placeholder="0" onkeyup="formatearMoneda(this)">
+          </div>
+          <div class="col-6">
+            <label class="small text-muted fw-bold">Disponibilidad</label>
+            <select id="prod-estado" class="form-select">
+              <option value="Activo">🟢 Activo</option>
+              <option value="Agotado">🔴 Agotado</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary w-100 fw-bold py-2" id="btn-guardar-prod" onclick="guardarProductoAdmin()">Guardar Producto</button>
+      </div>
+    </div>
+
+    <input type="text" id="buscador-admin-carta" class="form-control mb-3" placeholder="🔍 Filtrar productos en la carta..." onkeyup="renderizarAdminCarta()">
+    <div id="lista-admin-carta"></div>
+  </div>
+
 <script>
   const API_URL = "https://script.google.com/macros/s/AKfycbxL629Jw9KzpkM6e045uuDLvtv1eSC4kZMqhRW6qpdmU_IW7AIkLkDDwakBK721J0TR/exec"; 
 
@@ -412,7 +509,8 @@
   let mesasCerradasEnSesion = [], mesasSeleccionadasUI = [], mesasEliminadasEnSesion = []; 
   let prodTempNombre = "", prodTempPrecio = 0, prodTempCant = 1;
   let tempGastoCaja = "", tempGastoConcepto = "", tempGastoMonto = 0;
-  let categoriaActual = null; // Controla si estamos viendo carpetas o productos de una carpeta
+  let categoriaActual = null;
+  let accionConfirmarPendiente = null;
 
   const arrayTodasLasMesas = [];
   for(let i=1; i<=40; i++) arrayTodasLasMesas.push("Mesa " + i);
@@ -421,6 +519,7 @@
   llamarBackend('obtenerCargaInicial').then(res => {
     if(!res) { document.getElementById('pantalla-carga').innerHTML = '<h4 class="mt-3 text-danger">Error Base de Datos</h4>'; return; }
     catalogo = res.productos; cacheMesas = res.sync.mesas; cacheDetalles = res.sync.detalles; cacheCerradas = res.sync.cerradas; listaUsuarios = res.usuarios; 
+    actualizarDatalistCategorias();
     renderizarVistaProductos();
     let opCajas = '<option value="" disabled selected>Selecciona la Caja...</option>';
     res.cajas.forEach(c => opCajas += `<option value="${c}">${c}</option>`);
@@ -429,6 +528,17 @@
     actualizarSugerenciasMesas(); document.getElementById('pantalla-carga').style.display = 'none';
     setInterval(sincronizacionSilenciosa, 5000);
   });
+
+  function escaparTexto(str) {
+    return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+  }
+
+  function actualizarDatalistCategorias() {
+    let cats = [...new Set(catalogo.map(p => p.categoria || 'General'))];
+    let html = '';
+    cats.forEach(c => html += `<option value="${c}">`);
+    document.getElementById('lista-categorias').innerHTML = html;
+  }
 
   function teclearPin(num) {
     if(miPin.length < 4) miPin += num;
@@ -440,19 +550,36 @@
   function validarLogin() {
     let user = listaUsuarios.find(u => u.pin === miPin);
     if(user) {
-      usuarioActual = user; document.getElementById('label-usuario-activo').innerText = user.nombre;
-      aplicarPermisos(); document.getElementById('navbar-top').style.display = 'flex';
+      usuarioActual = user; 
+      document.getElementById('label-usuario-activo').innerText = user.nombre;
+      document.getElementById('label-rol-activo').innerText = user.rol;
+      aplicarPermisos(); 
+      document.getElementById('navbar-top').style.display = 'flex';
       cargarComandasAbiertas(); 
     } else { mostrarAlerta("Error", "PIN incorrecto."); }
     miPin = ""; document.getElementById('display-pin').innerText = "";
   }
 
+  function esRolAdminOCajero() {
+    if (!usuarioActual) return false;
+    let r = usuarioActual.rol.toLowerCase().trim();
+    return r === 'cajero' || r === 'superadmin';
+  }
+
+  function esRolSuperAdmin() {
+    if (!usuarioActual) return false;
+    return usuarioActual.rol.toLowerCase().trim() === 'superadmin';
+  }
+
   function aplicarPermisos() {
-    let esCajero = usuarioActual.rol.toLowerCase() === 'cajero';
-    document.getElementById('btn-menu-venta-rapida').style.display = esCajero ? 'block' : 'none';
-    document.getElementById('btn-menu-caja').style.display = esCajero ? 'block' : 'none';
-    document.getElementById('btn-menu-cierre').style.display = esCajero ? 'block' : 'none';
-    document.getElementById('btn-abrir-pago').style.display = esCajero ? 'block' : 'none';
+    let adminCajero = esRolAdminOCajero();
+    let superAdmin = esRolSuperAdmin();
+
+    document.getElementById('btn-menu-venta-rapida').style.display = adminCajero ? 'block' : 'none';
+    document.getElementById('btn-menu-caja').style.display = adminCajero ? 'block' : 'none';
+    document.getElementById('btn-menu-cierre').style.display = adminCajero ? 'block' : 'none';
+    document.getElementById('btn-abrir-pago').style.display = adminCajero ? 'block' : 'none';
+    document.getElementById('seccion-superadmin').style.display = superAdmin ? 'block' : 'none';
   }
 
   function cerrarSesion() { usuarioActual = null; miPin = ""; document.getElementById('navbar-top').style.display = 'none'; cambiarVista('login'); }
@@ -501,27 +628,30 @@
     let contenedor = document.getElementById('contenedor-productos');
     let html = '';
 
-    // 1. Si el mesero escribe en el buscador, filtra en toda la carta al instante
+    // Solo mostramos productos que estén Activos
+    let catalogoDisponible = catalogo.filter(p => (p.estado || 'Activo').toLowerCase() !== 'agotado');
+
     if (texto !== "") {
-      let filtrados = catalogo.filter(p => p.nombre.toLowerCase().includes(texto) || (p.categoria && p.categoria.toLowerCase().includes(texto)));
+      let filtrados = catalogoDisponible.filter(p => p.nombre.toLowerCase().includes(texto) || (p.categoria && p.categoria.toLowerCase().includes(texto)));
       if (filtrados.length === 0) {
-        contenedor.innerHTML = '<p class="text-center text-muted mt-3">No se encontraron productos.</p>';
+        contenedor.innerHTML = '<p class="text-center text-muted mt-3">No se encontraron productos disponibles.</p>';
         return;
       }
       filtrados.forEach(p => {
-        html += `<div class="col-4"><button class="btn btn-outline-primary w-100 btn-producto shadow-sm" onclick="abrirModalCant('${p.nombre}', ${p.precio})"><span class="text-main-theme">${p.nombre}</span><span class="text-success">$${p.precio.toLocaleString('es-CO')}</span></button></div>`;
+        let nomEsc = escaparTexto(p.nombre);
+        html += `<div class="col-4"><button class="btn btn-outline-primary w-100 btn-producto shadow-sm" onclick="abrirModalCant('${nomEsc}', ${p.precio})"><span class="text-main-theme">${p.nombre}</span><span class="text-success">$${p.precio.toLocaleString('es-CO')}</span></button></div>`;
       });
       contenedor.innerHTML = html;
       return;
     }
 
-    // 2. Si no hay categoría elegida, muestra los botones de Categorías
     if (categoriaActual === null) {
-      let categoriasUnicas = [...new Set(catalogo.map(p => p.categoria || 'General'))];
+      let categoriasUnicas = [...new Set(catalogoDisponible.map(p => p.categoria || 'General'))];
       categoriasUnicas.forEach(cat => {
-        let cantidadItems = catalogo.filter(p => (p.categoria || 'General') === cat).length;
+        let catEsc = escaparTexto(cat);
+        let cantidadItems = catalogoDisponible.filter(p => (p.categoria || 'General') === cat).length;
         html += `<div class="col-6">
-                   <button class="btn w-100 btn-categoria" onclick="seleccionarCategoria('${cat}')">
+                   <button class="btn w-100 btn-categoria" onclick="seleccionarCategoria('${catEsc}')">
                      <span class="text-primary-theme">${cat}</span>
                      <small class="text-muted fw-normal" style="font-size: 11px;">${cantidadItems} opciones</small>
                    </button>
@@ -531,7 +661,6 @@
       return;
     }
 
-    // 3. Si eligió una categoría, muestra el botón para devolverse y los productos de esa sección
     html += `<div class="col-12 mb-1">
                <div class="d-flex justify-content-between align-items-center p-2 rounded bg-input-theme">
                  <button class="btn btn-sm btn-primary fw-bold px-3" onclick="volverACategorias()">⬅️ Categorías</button>
@@ -539,9 +668,10 @@
                </div>
              </div>`;
 
-    let prodsCategoria = catalogo.filter(p => (p.categoria || 'General') === categoriaActual);
+    let prodsCategoria = catalogoDisponible.filter(p => (p.categoria || 'General') === categoriaActual);
     prodsCategoria.forEach(p => {
-      html += `<div class="col-4"><button class="btn btn-outline-primary w-100 btn-producto shadow-sm" onclick="abrirModalCant('${p.nombre}', ${p.precio})"><span class="text-main-theme">${p.nombre}</span><span class="text-success">$${p.precio.toLocaleString('es-CO')}</span></button></div>`;
+      let nomEsc = escaparTexto(p.nombre);
+      html += `<div class="col-4"><button class="btn btn-outline-primary w-100 btn-producto shadow-sm" onclick="abrirModalCant('${nomEsc}', ${p.precio})"><span class="text-main-theme">${p.nombre}</span><span class="text-success">$${p.precio.toLocaleString('es-CO')}</span></button></div>`;
     });
     contenedor.innerHTML = html;
   }
@@ -582,6 +712,22 @@
     document.getElementById('alerta-custom').style.display = 'flex';
   }
   function cerrarAlerta() { document.getElementById('alerta-custom').style.display = 'none'; }
+
+  function abrirConfirmar(titulo, mensaje, callback) {
+    document.getElementById('conf-titulo').innerText = titulo;
+    document.getElementById('conf-mensaje').innerText = mensaje;
+    accionConfirmarPendiente = callback;
+    document.getElementById('modal-confirmar').style.display = 'flex';
+  }
+  function cerrarConfirmar() {
+    document.getElementById('modal-confirmar').style.display = 'none';
+    accionConfirmarPendiente = null;
+  }
+  document.getElementById('btn-conf-aceptar').onclick = function() {
+    let fn = accionConfirmarPendiente;
+    cerrarConfirmar();
+    if(typeof fn === 'function') fn();
+  };
 
   function abrirModalCant(nombre, precio) {
     prodTempNombre = nombre; prodTempPrecio = precio; prodTempCant = 1;
@@ -631,7 +777,7 @@
 
   function renderizarComandasEnPantalla() {
     let listaFiltrada = cacheMesas;
-    if(usuarioActual.rol.toLowerCase() !== 'cajero') { listaFiltrada = cacheMesas.filter(m => m.encargado === usuarioActual.nombre); }
+    if(!esRolAdminOCajero()) { listaFiltrada = cacheMesas.filter(m => m.encargado === usuarioActual.nombre); }
     if(listaFiltrada.length === 0) { document.getElementById('contenedor-comandas').innerHTML = '<p class="text-center mt-4 text-muted">No hay mesas activas.</p>'; return; }
     
     let html = '';
@@ -645,7 +791,7 @@
       }
 
       html += `<div class="col-6 mb-3">
-                 <div class="mesa-card h-100" onclick="abrirMesa('${c.id}', '${c.referencia}')">
+                 <div class="mesa-card h-100" onclick="abrirMesa('${c.id}', '${escaparTexto(c.referencia)}')">
                    <div class="mesa-header ${bgHeader} text-center py-2 fw-bold">
                      🍽️ ${c.referencia}
                    </div>
@@ -682,9 +828,10 @@
     let html = '';
     items.forEach(i => {
       totalActual += i.subtotal;
+      let nomEsc = escaparTexto(i.nombre);
       html += `<div class="item-fila d-flex justify-content-between align-items-center">
                  <div><span class="fw-bold text-main-theme">${i.cant}x ${i.nombre}</span><br><small class="text-muted">$${i.subtotal.toLocaleString('es-CO')}</small></div>
-                 <button class="btn btn-outline-danger btn-sm px-3 shadow-sm" onclick="restarProdInstantaneo('${i.nombre}', ${i.precio})">❌</button></div>`;
+                 <button class="btn btn-outline-danger btn-sm px-3 shadow-sm" onclick="restarProdInstantaneo('${nomEsc}', ${i.precio})">❌</button></div>`;
     });
     document.getElementById('tabla-detalles').innerHTML = html; document.getElementById('lbl-total').innerText = totalActual.toLocaleString('es-CO');
   }
@@ -748,7 +895,7 @@
   function cargarComandasCerradas() {
     cambiarVista('cerradas', 'Historial Pagadas');
     let listaFiltrada = cacheCerradas;
-    if(usuarioActual.rol.toLowerCase() !== 'cajero') { listaFiltrada = cacheCerradas.filter(c => c.encargado === usuarioActual.nombre); }
+    if(!esRolAdminOCajero()) { listaFiltrada = cacheCerradas.filter(c => c.encargado === usuarioActual.nombre); }
 
     if(listaFiltrada.length === 0) { document.getElementById('contenedor-cerradas').innerHTML = '<p class="text-center mt-4 text-muted">No hay facturas hoy.</p>'; return; }
     let html = '';
@@ -830,6 +977,237 @@
 
       document.getElementById('resultado-cierre').style.display = 'block';
     });
+  }
+
+  // =========================================================================
+  // LÓGICA SUPERADMIN: GESTIÓN DE USUARIOS
+  // =========================================================================
+
+  function abrirGestionUsuarios() {
+    limpiarFormUsuario();
+    cambiarVista('usuarios', 'Gestión Usuarios');
+    renderizarAdminUsuarios();
+  }
+
+  function limpiarFormUsuario() {
+    document.getElementById('usu-pin-original').value = "";
+    document.getElementById('usu-nombre').value = "";
+    document.getElementById('usu-pin').value = "";
+    document.getElementById('usu-rol').value = "mesero";
+    document.getElementById('form-usu-titulo').innerText = "Nuevo Trabajador";
+    document.getElementById('btn-guardar-usu').innerText = "Guardar Usuario";
+    document.getElementById('btn-cancelar-usu').style.display = "none";
+  }
+
+  function editarUsuarioAdmin(pin) {
+    let u = listaUsuarios.find(x => x.pin === pin);
+    if (!u) return;
+    document.getElementById('usu-pin-original').value = u.pin;
+    document.getElementById('usu-nombre').value = u.nombre;
+    document.getElementById('usu-pin').value = u.pin;
+    document.getElementById('usu-rol').value = u.rol.toLowerCase();
+    document.getElementById('form-usu-titulo').innerText = "Editando a " + u.nombre;
+    document.getElementById('btn-guardar-usu').innerText = "Actualizar Usuario";
+    document.getElementById('btn-cancelar-usu').style.display = "inline-block";
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function guardarUsuarioAdmin() {
+    let pinOriginal = document.getElementById('usu-pin-original').value;
+    let nombre = document.getElementById('usu-nombre').value.trim();
+    let pin = document.getElementById('usu-pin').value.trim();
+    let rol = document.getElementById('usu-rol').value;
+
+    if (!nombre) return mostrarAlerta("Falta Nombre", "Escribe el nombre del trabajador.");
+    if (pin.length !== 4) return mostrarAlerta("PIN Inválido", "El PIN debe tener exactamente 4 números.");
+
+    let btn = document.getElementById('btn-guardar-usu');
+    btn.disabled = true; btn.innerText = "Guardando...";
+
+    llamarBackend('guardarUsuario', { pinOriginal: pinOriginal, nombre: nombre, pin: pin, rol: rol }).then(res => {
+      btn.disabled = false; btn.innerText = "Guardar Usuario";
+      if (!res || !res.ok) {
+        return mostrarAlerta("Error", (res && res.error) ? res.error : "No se pudo guardar el usuario.");
+      }
+      listaUsuarios = res.usuarios;
+      limpiarFormUsuario();
+      renderizarAdminUsuarios();
+      mostrarAlerta("Listo", "Usuario guardado en el sistema.", "success");
+    });
+  }
+
+  function confirmarEliminarUsuario(pin, nombre) {
+    if (usuarioActual && usuarioActual.pin === pin) {
+      return mostrarAlerta("Acción Bloqueada", "No puedes eliminar tu propio usuario mientras tienes sesión abierta.");
+    }
+    abrirConfirmar("Eliminar Usuario", `¿Seguro que deseas eliminar a ${nombre}? Ya no podrá ingresar al sistema.`, () => {
+      llamarBackend('eliminarUsuario', { pin: pin }).then(res => {
+        if (res && res.ok) {
+          listaUsuarios = res.usuarios;
+          renderizarAdminUsuarios();
+          mostrarAlerta("Eliminado", "Usuario borrado correctamente.", "success");
+        }
+      });
+    });
+  }
+
+  function renderizarAdminUsuarios() {
+    let contenedor = document.getElementById('lista-admin-usuarios');
+    if (listaUsuarios.length === 0) {
+      contenedor.innerHTML = '<p class="text-center text-muted">No hay usuarios.</p>';
+      return;
+    }
+    let html = '';
+    listaUsuarios.forEach(u => {
+      let badgeColor = u.rol.toLowerCase() === 'superadmin' ? 'bg-warning text-dark' : (u.rol.toLowerCase() === 'cajero' ? 'bg-info text-dark' : 'bg-secondary');
+      let nomEsc = escaparTexto(u.nombre);
+      html += `<div class="card p-3 mb-2 shadow-sm">
+                 <div class="d-flex justify-content-between align-items-center">
+                   <div>
+                     <h6 class="fw-bold text-main-theme m-0">${u.nombre} <span class="badge ${badgeColor} ms-1 text-uppercase" style="font-size: 10px;">${u.rol}</span></h6>
+                     <small class="text-muted">PIN de acceso: <strong class="text-primary-theme">${u.pin}</strong></small>
+                   </div>
+                   <div class="d-flex gap-2">
+                     <button class="btn btn-sm btn-outline-primary" onclick="editarUsuarioAdmin('${u.pin}')">✏️</button>
+                     <button class="btn btn-sm btn-outline-danger" onclick="confirmarEliminarUsuario('${u.pin}', '${nomEsc}')">🗑️</button>
+                   </div>
+                 </div>
+               </div>`;
+    });
+    contenedor.innerHTML = html;
+  }
+
+  // =========================================================================
+  // LÓGICA SUPERADMIN: GESTIÓN DE CARTA (PRODUCTOS Y PRECIOS)
+  // =========================================================================
+
+  function abrirGestionCarta() {
+    limpiarFormProducto();
+    cambiarVista('carta', 'Gestión Carta');
+    renderizarAdminCarta();
+  }
+
+  function limpiarFormProducto() {
+    document.getElementById('prod-nombre-original').value = "";
+    document.getElementById('prod-categoria').value = "";
+    document.getElementById('prod-nombre').value = "";
+    document.getElementById('prod-precio').value = "";
+    document.getElementById('prod-estado').value = "Activo";
+    document.getElementById('form-prod-titulo').innerText = "Nuevo Producto";
+    document.getElementById('btn-guardar-prod').innerText = "Guardar Producto";
+    document.getElementById('btn-cancelar-prod').style.display = "none";
+  }
+
+  function editarProductoAdmin(nombre) {
+    let p = catalogo.find(x => x.nombre === nombre);
+    if (!p) return;
+    document.getElementById('prod-nombre-original').value = p.nombre;
+    document.getElementById('prod-categoria').value = p.categoria;
+    document.getElementById('prod-nombre').value = p.nombre;
+    document.getElementById('prod-precio').value = Number(p.precio).toLocaleString('es-CO');
+    document.getElementById('prod-estado').value = p.estado || "Activo";
+    document.getElementById('form-prod-titulo').innerText = "Editando Producto";
+    document.getElementById('btn-guardar-prod').innerText = "Actualizar Producto";
+    document.getElementById('btn-cancelar-prod').style.display = "inline-block";
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function guardarProductoAdmin() {
+    let nombreOriginal = document.getElementById('prod-nombre-original').value;
+    let categoria = document.getElementById('prod-categoria').value.trim();
+    let nombre = document.getElementById('prod-nombre').value.trim();
+    let precio = Number(document.getElementById('prod-precio').value.replace(/\D/g, ''));
+    let estado = document.getElementById('prod-estado').value;
+
+    if (!categoria) return mostrarAlerta("Falta Categoría", "Escribe o elige una categoría.");
+    if (!nombre) return mostrarAlerta("Falta Nombre", "Escribe el nombre del producto.");
+
+    let btn = document.getElementById('btn-guardar-prod');
+    btn.disabled = true; btn.innerText = "Guardando...";
+
+    llamarBackend('guardarProducto', { 
+      nombreOriginal: nombreOriginal, 
+      categoria: categoria, 
+      nombre: nombre, 
+      precio: precio, 
+      estado: estado 
+    }).then(res => {
+      btn.disabled = false; btn.innerText = "Guardar Producto";
+      if (!res || !res.ok) {
+        return mostrarAlerta("Error", (res && res.error) ? res.error : "No se pudo guardar el producto.");
+      }
+      catalogo = res.productos;
+      actualizarDatalistCategorias();
+      limpiarFormProducto();
+      renderizarAdminCarta();
+      mostrarAlerta("Listo", "Carta actualizada correctamente.", "success");
+    });
+  }
+
+  function toggleEstadoProductoAdmin(nombre) {
+    let p = catalogo.find(x => x.nombre === nombre);
+    if (!p) return;
+    let nuevoEstado = (p.estado === 'Agotado') ? 'Activo' : 'Agotado';
+    p.estado = nuevoEstado;
+    renderizarAdminCarta();
+    llamarBackend('guardarProducto', {
+      nombreOriginal: p.nombre,
+      categoria: p.categoria,
+      nombre: p.nombre,
+      precio: p.precio,
+      estado: nuevoEstado
+    }).then(res => {
+      if (res && res.ok) catalogo = res.productos;
+    });
+  }
+
+  function confirmarEliminarProducto(nombre) {
+    abrirConfirmar("Eliminar Producto", `¿Seguro que deseas borrar "${nombre}" de la carta?`, () => {
+      llamarBackend('eliminarProducto', { nombre: nombre }).then(res => {
+        if (res && res.ok) {
+          catalogo = res.productos;
+          actualizarDatalistCategorias();
+          renderizarAdminCarta();
+          mostrarAlerta("Eliminado", "Producto borrado de la carta.", "success");
+        }
+      });
+    });
+  }
+
+  function renderizarAdminCarta() {
+    let texto = document.getElementById('buscador-admin-carta').value.toLowerCase().trim();
+    let contenedor = document.getElementById('lista-admin-carta');
+    let filtrados = catalogo.filter(p => p.nombre.toLowerCase().includes(texto) || p.categoria.toLowerCase().includes(texto));
+
+    if (filtrados.length === 0) {
+      contenedor.innerHTML = '<p class="text-center text-muted">No se encontraron productos.</p>';
+      return;
+    }
+
+    let html = '';
+    filtrados.forEach(p => {
+      let nomEsc = escaparTexto(p.nombre);
+      let esAgotado = (p.estado === 'Agotado');
+      let badgeEstado = esAgotado 
+        ? `<span class="badge bg-danger" style="cursor:pointer;" onclick="toggleEstadoProductoAdmin('${nomEsc}')">Agotado</span>`
+        : `<span class="badge bg-success" style="cursor:pointer;" onclick="toggleEstadoProductoAdmin('${nomEsc}')">Activo</span>`;
+
+      html += `<div class="card p-3 mb-2 shadow-sm">
+                 <div class="d-flex justify-content-between align-items-center">
+                   <div>
+                     <small class="text-primary-theme fw-bold text-uppercase" style="font-size: 10px;">${p.categoria}</small>
+                     <h6 class="fw-bold text-main-theme m-0">${p.nombre}</h6>
+                     <span class="text-success fw-bold">$${Number(p.precio).toLocaleString('es-CO')}</span>
+                     <span class="ms-2">${badgeEstado}</span>
+                   </div>
+                   <div class="d-flex gap-2">
+                     <button class="btn btn-sm btn-outline-primary" onclick="editarProductoAdmin('${nomEsc}')">✏️</button>
+                     <button class="btn btn-sm btn-outline-danger" onclick="confirmarEliminarProducto('${nomEsc}')">🗑️</button>
+                   </div>
+                 </div>
+               </div>`;
+    });
+    contenedor.innerHTML = html;
   }
 
   if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js'); }); }
