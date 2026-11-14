@@ -73,11 +73,16 @@
     .mesa-body { background: transparent; border: none; flex: 1; display: flex; flex-direction: column; justify-content: center; }
 
     .alerta-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; display:none; justify-content:center; align-items:center; padding: 15px; }
-    .alerta-caja { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color); padding: 25px; border-radius: 16px; width: 100%; max-width: 380px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.8); animation: popIn 0.2s ease; }
+    .alerta-caja { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color); padding: 22px; border-radius: 16px; width: 100%; max-width: 390px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.8); animation: popIn 0.2s ease; max-height: 92vh; overflow-y: auto; }
     @keyframes popIn { 0% { transform: scale(0.8); opacity: 0;} 100% { transform: scale(1); opacity: 1;} }
     .alerta-icono { font-size: 40px; margin-bottom: 10px; }
     #pantalla-carga { position: fixed; top:0; left:0; width:100%; height:100%; background:var(--bg-body); z-index:9000; display:flex; flex-direction:column; justify-content:center; align-items:center; color: var(--text-main);}
     
+    /* ETIQUETAS RÁPIDAS DE OBSERVACIONES */
+    .chips-obs-wrap { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 10px; }
+    .chip-obs { font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 20px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main); cursor: pointer; transition: 0.15s; }
+    .chip-obs.activo { background: var(--gold-main); color: #ffffff; border-color: var(--gold-main); }
+
     .btn-mesa { border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main); border-radius: 12px; padding: 10px; font-weight: bold; cursor: pointer; transition: 0.2s; text-align: center; }
     .btn-mesa.seleccionada { background: linear-gradient(145deg, var(--gold-main), var(--gold-hover)); color: #ffffff; border: none; transform: scale(1.05); box-shadow: 0 4px 10px rgba(212, 175, 55, 0.3); }
     
@@ -217,15 +222,33 @@
     </div>
   </div>
 
+  <!-- MODAL CANTIDAD Y OBSERVACIONES (PARA TODOS LOS PRODUCTOS) -->
   <div id="modal-cantidad" class="alerta-overlay">
     <div class="alerta-caja">
       <h4 id="mc-nombre" class="fw-bold mb-1 text-primary-theme">Producto</h4>
-      <p id="mc-precio" class="text-muted mb-3">$0</p>
-      <div class="d-flex justify-content-center align-items-center mb-4">
+      <p id="mc-precio" class="text-muted mb-2">$0</p>
+      
+      <div class="d-flex justify-content-center align-items-center mb-3">
         <button class="btn btn-outline-danger btn-lg px-4" style="font-size: 24px;" onclick="ajustarCantTemporal(-1)">-</button>
-        <h2 id="mc-cant" class="mx-4 mb-0 fw-bold text-main-theme" style="font-size: 40px;">1</h2>
+        <h2 id="mc-cant" class="mx-4 mb-0 fw-bold text-main-theme" style="font-size: 38px;">1</h2>
         <button class="btn btn-outline-success btn-lg px-4" style="font-size: 24px;" onclick="ajustarCantTemporal(1)">+</button>
       </div>
+
+      <div class="text-start mb-3">
+        <label class="small text-muted fw-bold mb-1">Observación (Opcional):</label>
+        <div class="chips-obs-wrap" id="mc-chips">
+          <span class="chip-obs" onclick="toggleChipObs('mc-obs', this)">Término 1/2</span>
+          <span class="chip-obs" onclick="toggleChipObs('mc-obs', this)">Término 3/4</span>
+          <span class="chip-obs" onclick="toggleChipObs('mc-obs', this)">Bien asado</span>
+          <span class="chip-obs" onclick="toggleChipObs('mc-obs', this)">Sin sopa</span>
+          <span class="chip-obs" onclick="toggleChipObs('mc-obs', this)">Sin ensalada</span>
+          <span class="chip-obs" onclick="toggleChipObs('mc-obs', this)">En leche</span>
+          <span class="chip-obs" onclick="toggleChipObs('mc-obs', this)">Sin azúcar</span>
+          <span class="chip-obs" onclick="toggleChipObs('mc-obs', this)">Para llevar</span>
+        </div>
+        <input type="text" id="mc-obs" class="form-control form-control-sm" placeholder="📝 Escribir nota (ej. sin cebolla, papa francesa)..." oninput="sincronizarChipsConInput('mc-obs', 'mc-chips')">
+      </div>
+
       <div class="d-flex gap-2">
         <button class="btn btn-secondary w-50 py-3" onclick="cerrarModalCant()">Cancelar</button>
         <button class="btn btn-success w-50 py-3 fw-bold" onclick="confirmarAgregarProd()">Agregar</button>
@@ -233,28 +256,41 @@
     </div>
   </div>
 
-  <!-- MODAL MENÚ DEL DÍA (DESGLOSE Y PEDIDO) -->
+  <!-- MODAL MENÚ DEL DÍA (DESGLOSE, OBSERVACIÓN Y PEDIDO) -->
   <div id="modal-menu-dia" class="alerta-overlay">
     <div class="alerta-caja text-start" style="max-width: 410px; border: 1.5px solid var(--gold-main);">
-      <div class="d-flex justify-content-between align-items-center mb-2">
+      <div class="d-flex justify-content-between align-items-center mb-1">
         <h4 class="fw-bold text-primary-theme m-0">🍲 Menú del Día</h4>
         <span class="badge bg-success fs-6 px-3 py-2" id="md-modal-precio">$0</span>
       </div>
       <small class="text-muted d-block mb-2" id="md-modal-fecha"></small>
       
-      <div class="p-3 rounded bg-input-theme mb-3" style="max-height: 38vh; overflow-y: auto; border: 1px solid var(--border-color);">
-        <div id="md-modal-desc" style="white-space: pre-line; font-size: 15px; line-height: 1.55;"></div>
+      <div class="p-3 rounded bg-input-theme mb-3" style="max-height: 28vh; overflow-y: auto; border: 1px solid var(--border-color);">
+        <div id="md-modal-desc" style="white-space: pre-line; font-size: 14px; line-height: 1.5;"></div>
       </div>
 
       <div class="d-flex justify-content-center align-items-center mb-3">
-        <button class="btn btn-outline-danger px-4 py-2 fw-bold" style="font-size: 22px;" onclick="ajustarCantMenuDia(-1)">-</button>
-        <h2 id="md-modal-cant" class="mx-4 mb-0 fw-bold text-main-theme" style="font-size: 36px;">1</h2>
-        <button class="btn btn-outline-success px-4 py-2 fw-bold" style="font-size: 22px;" onclick="ajustarCantMenuDia(1)">+</button>
+        <button class="btn btn-outline-danger px-4 py-1 fw-bold" style="font-size: 22px;" onclick="ajustarCantMenuDia(-1)">-</button>
+        <h2 id="md-modal-cant" class="mx-4 mb-0 fw-bold text-main-theme" style="font-size: 34px;">1</h2>
+        <button class="btn btn-outline-success px-4 py-1 fw-bold" style="font-size: 22px;" onclick="ajustarCantMenuDia(1)">+</button>
+      </div>
+
+      <div class="mb-3">
+        <label class="small text-muted fw-bold mb-1">Observación (Opcional):</label>
+        <div class="chips-obs-wrap" id="md-chips">
+          <span class="chip-obs" onclick="toggleChipObs('md-modal-obs', this)">Sin sopa</span>
+          <span class="chip-obs" onclick="toggleChipObs('md-modal-obs', this)">Sin principio</span>
+          <span class="chip-obs" onclick="toggleChipObs('md-modal-obs', this)">Sin arroz</span>
+          <span class="chip-obs" onclick="toggleChipObs('md-modal-obs', this)">Sin ensalada</span>
+          <span class="chip-obs" onclick="toggleChipObs('md-modal-obs', this)">Sin azúcar</span>
+          <span class="chip-obs" onclick="toggleChipObs('md-modal-obs', this)">Para llevar</span>
+        </div>
+        <input type="text" id="md-modal-obs" class="form-control form-control-sm" placeholder="📝 Escribir nota (ej. jugo en leche, sin jugo)..." oninput="sincronizarChipsConInput('md-modal-obs', 'md-chips')">
       </div>
 
       <div class="d-flex gap-2">
-        <button class="btn btn-secondary py-3" style="width: 38%;" onclick="cerrarModalMenuDia()">Cerrar</button>
-        <button class="btn btn-success py-3 fw-bold" style="width: 62%;" id="btn-pedir-menu-dia" onclick="confirmarPedirMenuDia()">Pedir</button>
+        <button class="btn btn-secondary py-3" style="width: 36%;" onclick="cerrarModalMenuDia()">Cerrar</button>
+        <button class="btn btn-success py-3 fw-bold" style="width: 64%;" id="btn-pedir-menu-dia" onclick="confirmarPedirMenuDia()">Pedir</button>
       </div>
     </div>
   </div>
@@ -604,6 +640,46 @@
     return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
   }
 
+  function formatearNombreVisual(nombreCompleto) {
+    let match = nombreCompleto.match(/^(.*?)\s*\(([^)]+)\)$/);
+    if (match) {
+      return `${match[1]} <span class="badge bg-warning text-dark ms-1" style="font-size: 11px; font-weight: 600;">📝 ${match[2]}</span>`;
+    }
+    return nombreCompleto;
+  }
+
+  function toggleChipObs(inputId, chipEl) {
+    let textoChip = chipEl.innerText.trim();
+    let input = document.getElementById(inputId);
+    let partes = input.value.split(',').map(p => p.trim()).filter(p => p !== "");
+    let idx = partes.findIndex(p => p.toLowerCase() === textoChip.toLowerCase());
+
+    if (idx !== -1) {
+      partes.splice(idx, 1);
+      chipEl.classList.remove('activo');
+    } else {
+      partes.push(textoChip);
+      chipEl.classList.add('activo');
+    }
+    input.value = partes.join(', ');
+  }
+
+  function sincronizarChipsConInput(inputId, chipsWrapId) {
+    let partes = document.getElementById(inputId).value.split(',').map(p => p.trim().toLowerCase());
+    document.querySelectorAll(`#${chipsWrapId} .chip-obs`).forEach(chip => {
+      if (partes.includes(chip.innerText.trim().toLowerCase())) {
+        chip.classList.add('activo');
+      } else {
+        chip.classList.remove('activo');
+      }
+    });
+  }
+
+  function limpiarChipsObs(inputId, chipsWrapId) {
+    document.getElementById(inputId).value = "";
+    document.querySelectorAll(`#${chipsWrapId} .chip-obs`).forEach(chip => chip.classList.remove('activo'));
+  }
+
   function actualizarDatalistCategorias() {
     let cats = [...new Set(catalogo.map(p => p.categoria || 'General'))];
     let html = '';
@@ -685,6 +761,7 @@
   function abrirModalMenuDia() {
     if (!menuDiaData || menuDiaData.estado !== 'Activo') return;
     mdModalCant = 1;
+    limpiarChipsObs('md-modal-obs', 'md-chips');
     document.getElementById('md-modal-precio').innerText = "$" + Number(menuDiaData.precio).toLocaleString('es-CO');
     document.getElementById('md-modal-fecha').innerText = menuDiaData.fecha ? ("Actualizado: " + menuDiaData.fecha) : "";
     document.getElementById('md-modal-desc').innerText = menuDiaData.descripcion || "Sin descripción detallada.";
@@ -710,8 +787,10 @@
   }
 
   function confirmarPedirMenuDia() {
+    let obs = document.getElementById('md-modal-obs').value.trim().replace(/\(/g, '[').replace(/\)/g, ']');
+    let nombreFinal = obs !== "" ? `Menú del Día (${obs})` : "Menú del Día";
     cerrarModalMenuDia();
-    ejecutarMovimientoLocal("Menú del Día", Number(menuDiaData.precio), mdModalCant);
+    ejecutarMovimientoLocal(nombreFinal, Number(menuDiaData.precio), mdModalCant);
   }
 
   function abrirGestionMenuDia() {
@@ -925,12 +1004,18 @@
 
   function abrirModalCant(nombre, precio) {
     prodTempNombre = nombre; prodTempPrecio = precio; prodTempCant = 1;
+    limpiarChipsObs('mc-obs', 'mc-chips');
     document.getElementById('mc-nombre').innerText = nombre; document.getElementById('mc-precio').innerText = "$" + precio.toLocaleString('es-CO');
     document.getElementById('mc-cant').innerText = prodTempCant; document.getElementById('modal-cantidad').style.display = 'flex';
   }
   function ajustarCantTemporal(val) { if(prodTempCant + val >= 1) { prodTempCant += val; document.getElementById('mc-cant').innerText = prodTempCant; } }
   function cerrarModalCant() { document.getElementById('modal-cantidad').style.display = 'none'; }
-  function confirmarAgregarProd() { cerrarModalCant(); ejecutarMovimientoLocal(prodTempNombre, prodTempPrecio, prodTempCant); }
+  function confirmarAgregarProd() {
+    let obs = document.getElementById('mc-obs').value.trim().replace(/\(/g, '[').replace(/\)/g, ']');
+    let nombreFinal = obs !== "" ? `${prodTempNombre} (${obs})` : prodTempNombre;
+    cerrarModalCant(); 
+    ejecutarMovimientoLocal(nombreFinal, prodTempPrecio, prodTempCant); 
+  }
 
   function cambiarVista(id, tituloNav = "") {
     document.querySelectorAll('.vista').forEach(el => el.classList.remove('activa'));
@@ -1024,9 +1109,10 @@
     items.forEach(i => {
       totalActual += i.subtotal;
       let nomEsc = escaparTexto(i.nombre);
+      let nomVisual = formatearNombreVisual(i.nombre);
       html += `<div class="item-fila d-flex justify-content-between align-items-center">
-                 <div><span class="fw-bold text-main-theme">${i.cant}x ${i.nombre}</span><br><small class="text-muted">$${i.subtotal.toLocaleString('es-CO')}</small></div>
-                 <button class="btn btn-outline-danger btn-sm px-3 shadow-sm" onclick="restarProdInstantaneo('${nomEsc}', ${i.precio})">❌</button></div>`;
+                 <div class="text-start pe-2"><span class="fw-bold text-main-theme">${i.cant}x ${nomVisual}</span><br><small class="text-muted">$${i.subtotal.toLocaleString('es-CO')}</small></div>
+                 <button class="btn btn-outline-danger btn-sm px-3 shadow-sm flex-shrink-0" onclick="restarProdInstantaneo('${nomEsc}', ${i.precio})">❌</button></div>`;
     });
     document.getElementById('tabla-detalles').innerHTML = html; document.getElementById('lbl-total').innerText = totalActual.toLocaleString('es-CO');
   }
