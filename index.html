@@ -177,7 +177,6 @@
     </div>
     <div class="offcanvas-body p-0">
       <a class="menu-item" onclick="intentarNavegar(cargarComandasAbiertas)" data-bs-dismiss="offcanvas">🏠 Dashboard Mesas</a>
-      <a class="menu-item text-primary-theme" id="btn-menu-venta-rapida" onclick="intentarNavegar(iniciarVentaRapida)" data-bs-dismiss="offcanvas" style="display:none;">⚡ Venta Rápida</a>
       <a class="menu-item" style="color: #0ea5e9 !important;" id="btn-menu-caja" onclick="intentarNavegar(() => cambiarVista('caja', 'Control de Caja'))" data-bs-dismiss="offcanvas" style="display:none;">💵 Control de Caja</a>
       <a class="menu-item" style="color: #f59e0b !important;" id="btn-menu-consumos-admin" onclick="intentarNavegar(abrirConsumosAdmin)" data-bs-dismiss="offcanvas" style="display:none;">🍔 Consumo Empleados</a>
       <a class="menu-item" style="color: #10b981 !important;" id="btn-menu-nomina" onclick="intentarNavegar(abrirNomina)" data-bs-dismiss="offcanvas" style="display:none;">💸 Nómina y Turnos</a>
@@ -585,18 +584,24 @@
         </div>
       </div>
 
-      <div class="card p-3 mb-3">
+<div class="card p-3 mb-3">
         <h6 class="fw-bold text-primary-theme mb-3">⏱️ Horas Extra y Tolerancia</h6>
-        <div class="row g-2">
-          <div class="col-4">
-            <label class="small text-muted">Extra Lun-Vie ($)</label>
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <label class="small text-muted">Extra Lun-Sáb ($)</label>
             <input type="text" id="t-extra-sem" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
           </div>
-          <div class="col-4">
-            <label class="small text-muted">Extra Sáb/Dom/Fest</label>
+          <div class="col-6">
+            <label class="small text-muted">Extra Dom/Fest Salón</label>
             <input type="text" id="t-extra-fin" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
           </div>
-          <div class="col-4">
+        </div>
+        <div class="row g-2">
+          <div class="col-6">
+            <label class="small text-muted">Extra Dom/Fest Cocina</label>
+            <input type="text" id="t-extra-coc-dom" class="form-control fw-bold" onkeyup="formatearMoneda(this)">
+          </div>
+          <div class="col-6">
             <label class="small text-muted">Gracia (Minutos)</label>
             <input type="number" id="t-tolerancia" class="form-control fw-bold text-center" min="0" max="59">
           </div>
@@ -1165,7 +1170,6 @@
     let adminCajero = esRolAdminOCajero();
     let superAdmin = esRolSuperAdmin();
 
-    document.getElementById('btn-menu-venta-rapida').style.display = adminCajero ? 'block' : 'none';
     document.getElementById('btn-flotante-rapida').style.display = adminCajero ? 'flex' : 'none';
     document.getElementById('btn-menu-caja').style.display = adminCajero ? 'block' : 'none';
     document.getElementById('btn-menu-consumos-admin').style.display = adminCajero ? 'block' : 'none';
@@ -2325,8 +2329,9 @@ function actualizarTextoBotonAbrir() {
     document.getElementById('t-coc-medio-dom').value = Number(cacheTarifas.coc_medio_dom || 50000).toLocaleString('es-CO');
     document.getElementById('t-coc-comp-dom').value = Number(cacheTarifas.coc_comp_dom || 100000).toLocaleString('es-CO');
 
-    document.getElementById('t-extra-sem').value = Number(cacheTarifas.extra_sem || 5000).toLocaleString('es-CO');
+document.getElementById('t-extra-sem').value = Number(cacheTarifas.extra_sem || 5000).toLocaleString('es-CO');
     document.getElementById('t-extra-fin').value = Number(cacheTarifas.extra_fin || 7000).toLocaleString('es-CO');
+    document.getElementById('t-extra-coc-dom').value = Number(cacheTarifas.extra_coc_dom || 8000).toLocaleString('es-CO');
     document.getElementById('t-tolerancia').value = Number(cacheTarifas.tolerancia_min || 15);
   }
 
@@ -2348,6 +2353,7 @@ function actualizarTextoBotonAbrir() {
       coc_comp_dom: num('t-coc-comp-dom'),
       extra_sem: num('t-extra-sem'),
       extra_fin: num('t-extra-fin'),
+      extra_coc_dom: num('t-extra-coc-dom'),
       tolerancia_min: Number(document.getElementById('t-tolerancia').value || 15)
     };
 
