@@ -45,12 +45,17 @@
     }
 
     body { background-color: var(--bg-body); font-family: 'Inter', sans-serif; color: var(--text-main); padding-top: 60px; padding-bottom: 80px; user-select: none; transition: background-color 0.3s, color 0.3s; }
+    body.con-banner-red { padding-top: 94px; }
     .vista { display: none; padding: 15px; }
     .vista.activa { display: block; }
     button { touch-action: manipulation; } 
     
     .navbar-top { position: fixed; top: 0; width: 100%; z-index: 1030; background: var(--bg-card); border-bottom: 1px solid var(--gold-main); color: var(--gold-main); height: 60px; display: none; justify-content: space-between; align-items: center; padding: 0 15px; box-shadow: 0 4px 10px var(--shadow-color); transition: background 0.3s; }
     .btn-hamburguesa { font-size: 24px; color: var(--gold-main); background: none; border: none; padding: 0; margin-right: 15px;}
+
+    /* BANNER DE ESTADO DE RED Y COLA OFFLINE */
+    .banner-red { position: fixed; top: 60px; left: 0; width: 100%; z-index: 1025; background: #b45309; color: #ffffff; font-size: 12px; font-weight: 700; text-align: center; padding: 6px 12px; display: none; box-shadow: 0 3px 8px rgba(0,0,0,0.4); }
+    .banner-red.sincronizando { background: #0284c7; }
     
     .btn-flotante-add { position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(145deg, var(--gold-main), var(--gold-hover)); color: #ffffff; font-size: 30px; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4); z-index: 99; cursor: pointer;}
     
@@ -154,6 +159,9 @@
       <button class="btn btn-dark btn-sm fw-bold shadow-sm" id="btn-nav-inicio" onclick="intentarNavegar(cargarComandasAbiertas)" style="display:none;">🏠 Inicio</button>
     </div>
   </div>
+
+  <!-- BARRA DE RESILIENCIA OFFLINE -->
+  <div id="banner-red" class="banner-red"></div>
 
   <div class="offcanvas offcanvas-start" tabindex="-1" id="menuLateral">
     <div class="offcanvas-header text-main-theme">
@@ -666,12 +674,164 @@
     }
   });
 
+  // =========================================================================
+  // MOTOR DE RESILIENCIA OFFLINE Y COLA DE ENVÍO AUTOMÁTICO
+  // =========================================================================
+
+  const KEY_COLA_OFFLINE = 'altamira_cola_envios_v1';
+  const KEY_CACHE_LOCAL = 'altamira_cache_datos_v1';
+  const ACCIONES_ENCOLABLES = [
+    'abrirComanda', 'eliminarComanda', 'registrarMovimiento', 'pagarComanda',
+    'registrarMovCaja', 'guardarUsuario', 'eliminarUsuario',
+    'guardarProducto', 'eliminarProducto', 'guardarMenuDia',
+    'registrarConsumoEmpleado', 'eliminarConsumoItem', 'liquidarConsumoEmpleado'
+  ];
+
+  let colaEnvios = [];
+  let procesandoCola = false;
+  let hayInternet = navigator.onLine;
+  let listaCajasCache = [];
+
+  try {
+    const guardada = localStorage.getItem(KEY_COLA_OFFLINE);
+    if (guardada) colaEnvios = JSON.parse(guardada);
+  } catch(e) { colaEnvios = []; }
+
+  function guardarColaEnMemoria() {
+    try { localStorage.setItem(KEY_COLA_OFFLINE, JSON.stringify(colaEnvios)); } catch(e) {}
+    actualizarBannerRed();
+  }
+
+  function guardarEstadoEnMemoriaLocal() {
+    try {
+      const snapshot = {
+        catalogo: catalogo,
+        listaUsuarios: listaUsuarios,
+        cajas: listaCajasCache,
+        cacheMesas: cacheMesas,
+        cacheDetalles: cacheDetalles,
+        cacheCerradas: cacheCerradas,
+        menuDiaData: menuDiaData,
+        cacheConsumos: cacheConsumos
+      };
+      localStorage.setItem(KEY_CACHE_LOCAL, JSON.stringify(snapshot));
+    } catch(e) {}
+  }
+
+  function cargarEstadoDesdeMemoriaLocal() {
+    try {
+      const raw = localStorage.getItem(KEY_CACHE_LOCAL);
+      if (!raw) return false;
+      const snap = JSON.parse(raw);
+      if (snap.catalogo) catalogo = snap.catalogo;
+      if (snap.listaUsuarios) listaUsuarios = snap.listaUsuarios;
+      if (snap.cajas) listaCajasCache = snap.cajas;
+      if (snap.cacheMesas) cacheMesas = snap.cacheMesas;
+      if (snap.cacheDetalles) cacheDetalles = snap.cacheDetalles;
+      if (snap.cacheCerradas) cacheCerradas = snap.cacheCerradas;
+      if (snap.menuDiaData) menuDiaData = snap.menuDiaData;
+      if (snap.cacheConsumos) cacheConsumos = snap.cacheConsumos;
+      return true;
+    } catch(e) { return false; }
+  }
+
+  function actualizarBannerRed() {
+    const banner = document.getElementById('banner-red');
+    if (!banner) return;
+
+    if (colaEnvios.length > 0) {
+      banner.style.display = 'block';
+      document.body.classList.add('con-banner-red');
+      if (hayInternet && procesandoCola) {
+        banner.className = 'banner-red sincronizando';
+        banner.innerText = `🔄 Sincronizando ${colaEnvios.length} cambio(s) pendiente(s)...`;
+      } else {
+        banner.className = 'banner-red';
+        banner.innerText = `⏳ Sin red: ${colaEnvios.length} envío(s) guardado(s) (se subirán solos)`;
+      }
+    } else if (!hayInternet) {
+      banner.style.display = 'block';
+      document.body.classList.add('con-banner-red');
+      banner.className = 'banner-red';
+      banner.innerText = `📡 Modo sin internet activo (los cambios se guardan en el celular)`;
+    } else {
+      banner.style.display = 'none';
+      document.body.classList.remove('con-banner-red');
+    }
+  }
+
+  async function enviarPeticionDirecta(payload) {
+    let res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    let json = await res.json();
+    hayInternet = true;
+    return json;
+  }
+
+  async function procesarColaEnvios() {
+    if (procesandoCola || colaEnvios.length === 0) {
+      actualizarBannerRed();
+      return;
+    }
+    procesandoCola = true;
+    actualizarBannerRed();
+
+    while (colaEnvios.length > 0) {
+      let item = colaEnvios[0];
+      try {
+        await enviarPeticionDirecta(item.payload);
+        colaEnvios.shift();
+        guardarColaEnMemoria();
+      } catch(e) {
+        hayInternet = false;
+        break;
+      }
+    }
+
+    procesandoCola = false;
+    actualizarBannerRed();
+  }
+
+  window.addEventListener('online', () => {
+    hayInternet = true;
+    actualizarBannerRed();
+    procesarColaEnvios();
+  });
+
+  window.addEventListener('offline', () => {
+    hayInternet = false;
+    actualizarBannerRed();
+  });
+
   async function llamarBackend(action, data = {}) {
     data.action = action;
+
+    // Si es una operación de escritura, la encolamos para garantizar entrega incluso sin internet
+    if (ACCIONES_ENCOLABLES.includes(action)) {
+      colaEnvios.push({
+        idEnvio: Date.now() + "_" + Math.random().toString(36).slice(2, 7),
+        payload: Object.assign({}, data)
+      });
+      guardarColaEnMemoria();
+      guardarEstadoEnMemoriaLocal();
+      procesarColaEnvios();
+      return { ok: true, encolado: true };
+    }
+
+    // Si es una consulta de lectura
     try {
-      let res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });
-      return await res.json();
-    } catch(e) { console.error("Error API:", e); return null; }
+      let json = await enviarPeticionDirecta(data);
+      actualizarBannerRed();
+      return json;
+    } catch(e) {
+      hayInternet = false;
+      actualizarBannerRed();
+      return null;
+    }
   }
 
   function obtenerFechaHoyLocal() {
@@ -706,24 +866,49 @@
   for(let i=1; i<=40; i++) arrayTodasLasMesas.push("Mesa " + i);
   arrayTodasLasMesas.push("Barra 1", "Barra 2", "Barra 3");
 
+  function poblarSelectsCajas(cajasArr) {
+    let opCajas = '<option value="" disabled selected>Selecciona la Caja...</option>';
+    cajasArr.forEach(c => opCajas += `<option value="${c}">${c}</option>`);
+    document.getElementById('sel-caja').innerHTML = opCajas;
+    document.getElementById('sel-caja-base').innerHTML = opCajas;
+    document.getElementById('sel-caja-gasto').innerHTML = opCajas;
+    document.getElementById('cierre-caja').innerHTML = opCajas;
+  }
+
+  // Carga inicial con respaldo automático desde memoria local si no hay red
   llamarBackend('obtenerCargaInicial').then(res => {
-    if(!res) { document.getElementById('pantalla-carga').innerHTML = '<h4 class="mt-3 text-danger">Error Base de Datos</h4>'; return; }
-    catalogo = res.productos; 
-    cacheMesas = res.sync.mesas; 
-    cacheDetalles = res.sync.detalles; 
-    cacheCerradas = res.sync.cerradas; 
-    listaUsuarios = res.usuarios; 
-    if(res.sync.menuDia) menuDiaData = res.sync.menuDia;
-    if(res.sync.consumos) cacheConsumos = res.sync.consumos;
+    if(!res) {
+      let tieneRespaldo = cargarEstadoDesdeMemoriaLocal();
+      if (!tieneRespaldo) {
+        document.getElementById('pantalla-carga').innerHTML = '<h4 class="mt-3 text-danger">Sin conexión a internet</h4><p class="text-muted px-4 text-center">Conéctate una primera vez para descargar los datos del restaurante.</p>';
+        return;
+      }
+    } else {
+      catalogo = res.productos; 
+      listaUsuarios = res.usuarios;
+      listaCajasCache = res.cajas;
+      if (colaEnvios.length === 0) {
+        cacheMesas = res.sync.mesas; 
+        cacheDetalles = res.sync.detalles; 
+        cacheCerradas = res.sync.cerradas; 
+        if(res.sync.menuDia) menuDiaData = res.sync.menuDia;
+        if(res.sync.consumos) cacheConsumos = res.sync.consumos;
+      } else {
+        cargarEstadoDesdeMemoriaLocal();
+      }
+      guardarEstadoEnMemoriaLocal();
+    }
 
     actualizarDatalistCategorias();
     renderizarVistaProductos();
-    let opCajas = '<option value="" disabled selected>Selecciona la Caja...</option>';
-    res.cajas.forEach(c => opCajas += `<option value="${c}">${c}</option>`);
-    document.getElementById('sel-caja').innerHTML = opCajas; document.getElementById('sel-caja-base').innerHTML = opCajas;
-    document.getElementById('sel-caja-gasto').innerHTML = opCajas; document.getElementById('cierre-caja').innerHTML = opCajas;
-    actualizarSugerenciasMesas(); document.getElementById('pantalla-carga').style.display = 'none';
+    poblarSelectsCajas(listaCajasCache);
+    actualizarSugerenciasMesas();
+    document.getElementById('pantalla-carga').style.display = 'none';
+    actualizarBannerRed();
+    procesarColaEnvios();
+
     setInterval(sincronizacionSilenciosa, 5000);
+    setInterval(procesarColaEnvios, 4000);
   });
 
   function escaparTexto(str) {
@@ -873,7 +1058,6 @@
       return mostrarAlerta("Falta Desglose", "Escribe qué incluye el Menú del Día para que los meseros lo puedan leer.");
     }
 
-    // Actualización instantánea local
     let fechaHoy = obtenerFechaHoyLocal();
     pausaSyncMenuDiaHasta = Date.now() + 10000;
     menuDiaData = { estado: estado, precio: precio, descripcion: descripcion, fecha: fechaHoy };
@@ -881,12 +1065,7 @@
     renderizarVistaProductos();
     mostrarAlerta("Listo", "Menú del Día actualizado al instante.", "success");
 
-    // Guardado silencioso en Google Sheets
-    llamarBackend('guardarMenuDia', { estado: estado, precio: precio, descripcion: descripcion }).then(res => {
-      if (res && res.ok && res.menuDia) {
-        menuDiaData = res.menuDia;
-      }
-    });
+    llamarBackend('guardarMenuDia', { estado: estado, precio: precio, descripcion: descripcion });
   }
 
   // NAVEGACIÓN POR CATEGORÍAS Y BUSCADOR GLOBAL
@@ -1014,8 +1193,11 @@
 
   function sincronizacionSilenciosa() {
     if(usuarioActual === null) return;
+    // No sobrescribir datos locales mientras haya envíos pendientes en la cola offline
+    if(colaEnvios.length > 0 || procesandoCola) return;
+
     llamarBackend('sincronizarFondo').then(sync => {
-      if(sync) {
+      if(sync && colaEnvios.length === 0 && !procesandoCola) {
         if (sync.menuDia && Date.now() > pausaSyncMenuDiaHasta) {
           let cambioMenu = JSON.stringify(menuDiaData) !== JSON.stringify(sync.menuDia);
           menuDiaData = sync.menuDia;
@@ -1041,6 +1223,7 @@
             renderizarComandasEnPantalla(); 
           }
         }
+        guardarEstadoEnMemoriaLocal();
       }
     });
   }
@@ -1116,14 +1299,17 @@
     cambiarVista('lista', 'Mesas Activas');
     renderizarComandasEnPantalla();
     
+    if (colaEnvios.length > 0 || procesandoCola) return;
+
     llamarBackend('sincronizarFondo').then(sync => {
-      if(sync) {
+      if(sync && colaEnvios.length === 0 && !procesandoCola) {
         cacheMesas = sync.mesas.filter(m => !mesasCerradasEnSesion.includes(String(m.id)) && !mesasEliminadasEnSesion.includes(String(m.id))); 
         cacheDetalles = sync.detalles;
         if(sync.menuDia && Date.now() > pausaSyncMenuDiaHasta) menuDiaData = sync.menuDia;
         if(sync.consumos && Date.now() > pausaSyncConsumosHasta) cacheConsumos = sync.consumos.filter(c => !consumosEliminadosEnSesion.includes(String(c.id)));
         actualizarSugerenciasMesas(); 
         renderizarComandasEnPantalla();
+        guardarEstadoEnMemoriaLocal();
       }
     });
   }
@@ -1267,7 +1453,11 @@
     document.getElementById('tk-items').innerHTML = 'Cargando...'; document.getElementById('tk-mesa').innerText = "Cargando...";
     cambiarVista('ticket', 'Factura Pagada');
     llamarBackend('obtenerDetalleTicket', {id: id}).then(res => {
-      if(!res) return;
+      if(!res) {
+        document.getElementById('tk-mesa').innerText = "Sin conexión";
+        document.getElementById('tk-items').innerHTML = '<p class="text-danger">Conéctate a internet para consultar los detalles de este ticket.</p>';
+        return;
+      }
       document.getElementById('tk-mesa').innerText = res.info.ref;
       document.getElementById('tk-datos').innerHTML = `Cobrado por: ${res.info.encargado}<br>Destino: ${res.info.caja || 'N/A'} | ${res.info.fecha}`;
       let html = ''; res.items.forEach(i => { html += `<div class="d-flex justify-content-between mb-1 text-start"><span>${i.cant}x ${i.nombre}</span><span>$${i.subtotal.toLocaleString('es-CO')}</span></div>`; });
@@ -1288,11 +1478,16 @@
     if(tipo === 'Gasto' && !concepto) return mostrarAlerta("Error", "Escribe el concepto del gasto.");
 
     llamarBackend('hacerCierre', {fecha: fecha, caja: caja}).then(res => {
+      // Si no hay internet (res === null), se guarda directo en la cola offline sin bloquear la operación
+      if (!res) {
+        ejecutarGuardadoCaja(fecha, caja, tipo, concepto, monto);
+        return;
+      }
       if(tipo === 'Base') {
-        if(res && res.base > 0) { mostrarAlerta("Atención", "Ya existe una base registrada para esta caja hoy."); } 
+        if(res.base > 0) { mostrarAlerta("Atención", "Ya existe una base registrada para esta caja hoy."); } 
         else { ejecutarGuardadoCaja(fecha, caja, tipo, concepto, monto); }
       } else if (tipo === 'Gasto') {
-        if(res && monto > res.efectivoEsperado) {
+        if(monto > res.efectivoEsperado) {
           tempGastoCaja = caja; tempGastoConcepto = concepto; tempGastoMonto = monto;
           document.getElementById('gasto-exceso-mensaje').innerText = `Estás intentando gastar $${monto.toLocaleString('es-CO')}, pero el efectivo esperado en caja es de solo $${res.efectivoEsperado.toLocaleString('es-CO')}.`;
           document.getElementById('modal-gasto-exceso').style.display = 'flex';
@@ -1322,7 +1517,7 @@
 
     llamarBackend('hacerCierre', {fecha: fecha, caja: caja}).then(res => {
       btn.disabled = false; btn.innerText = "Calcular Cuadre";
-      if(!res) return mostrarAlerta("Error", "No se pudo consultar el cierre.");
+      if(!res) return mostrarAlerta("Sin Conexión", "Necesitas internet para consultar el cuadre de caja en Google Sheets.");
       document.getElementById('res-base').innerText = res.base.toLocaleString('es-CO');
       document.getElementById('res-efe').innerText = res.efectivo.toLocaleString('es-CO');
       document.getElementById('res-gas').innerText = res.gastos.toLocaleString('es-CO');
@@ -1425,7 +1620,6 @@
       if (precio <= 0) return mostrarAlerta("Falta Valor", "Ingresa un valor mayor a $0.");
     }
 
-    // Actualización instantánea local
     pausaSyncConsumosHasta = Date.now() + 10000;
     let tempId = String(Date.now());
     let nuevoConsumo = {
@@ -1449,23 +1643,12 @@
     renderizarResumenConsumos();
     mostrarAlerta("Anotado", `Cargado a la cuenta de ${empleado}.`, "success");
 
-    // Guardado silencioso en segundo plano
     llamarBackend('registrarConsumoEmpleado', {
       empleado: empleado,
       producto: producto,
       cantidad: cantidad,
       precio: precio,
       registradoPor: usuarioActual.nombre
-    }).then(res => {
-      if (res && res.ok && res.consumos) {
-        cacheConsumos = res.consumos.filter(c => !consumosEliminadosEnSesion.includes(String(c.id)));
-        if (document.getElementById('vista-consumos-admin').classList.contains('activa')) {
-          renderizarResumenConsumos();
-        }
-        if (empleadoDetalleModalActual) {
-          renderizarContenidoModalConsumo();
-        }
-      }
     });
   }
 
@@ -1567,13 +1750,7 @@
       renderizarContenidoModalConsumo();
       mostrarAlerta("Eliminado", "Registro borrado de la planilla.", "success");
 
-      llamarBackend('eliminarConsumoItem', { id: id }).then(res => {
-        if (res && res.ok && res.consumos) {
-          cacheConsumos = res.consumos.filter(c => !consumosEliminadosEnSesion.includes(String(c.id)));
-          renderizarResumenConsumos();
-          if (empleadoDetalleModalActual) renderizarContenidoModalConsumo();
-        }
-      });
+      llamarBackend('eliminarConsumoItem', { id: id });
     });
   }
 
@@ -1594,12 +1771,7 @@
         renderizarResumenConsumos();
         mostrarAlerta("Planilla Liquidada", `La cuenta de ${emp} quedó en $0.`, "success");
 
-        llamarBackend('liquidarConsumoEmpleado', { empleado: emp }).then(res => {
-          if (res && res.ok && res.consumos) {
-            cacheConsumos = res.consumos.filter(c => !consumosEliminadosEnSesion.includes(String(c.id)));
-            renderizarResumenConsumos();
-          }
-        });
+        llamarBackend('liquidarConsumoEmpleado', { empleado: emp });
       },
       "Liquidar ($0)",
       "btn-success",
@@ -1687,7 +1859,6 @@
     let duplicado = listaUsuarios.find(u => u.pin === pin && u.pin !== pinOriginal);
     if (duplicado) return mostrarAlerta("PIN Duplicado", "Ese PIN ya está asignado a otro trabajador.");
 
-    // Actualización instantánea local
     if (pinOriginal !== "") {
       let idx = listaUsuarios.findIndex(u => u.pin === pinOriginal);
       if (idx !== -1) {
@@ -1708,15 +1879,7 @@
     renderizarAdminUsuarios();
     mostrarAlerta("Listo", "Usuario guardado en el sistema.", "success");
 
-    // Guardado silencioso en segundo plano
-    llamarBackend('guardarUsuario', { pinOriginal: pinOriginal, nombre: nombre, pin: pin, rol: rol }).then(res => {
-      if (res && res.ok && res.usuarios) {
-        listaUsuarios = res.usuarios;
-        if (document.getElementById('vista-usuarios').classList.contains('activa')) {
-          renderizarAdminUsuarios();
-        }
-      }
-    });
+    llamarBackend('guardarUsuario', { pinOriginal: pinOriginal, nombre: nombre, pin: pin, rol: rol });
   }
 
   function confirmarEliminarUsuario(pin, nombre) {
@@ -1728,11 +1891,7 @@
       renderizarAdminUsuarios();
       mostrarAlerta("Eliminado", "Usuario borrado correctamente.", "success");
 
-      llamarBackend('eliminarUsuario', { pin: pin }).then(res => {
-        if (res && res.ok && res.usuarios) {
-          listaUsuarios = res.usuarios;
-        }
-      });
+      llamarBackend('eliminarUsuario', { pin: pin });
     });
   }
 
@@ -1810,7 +1969,6 @@
     let duplicado = catalogo.find(p => p.nombre.toLowerCase() === nombre.toLowerCase() && p.nombre.toLowerCase() !== nombreOriginal.toLowerCase());
     if (duplicado) return mostrarAlerta("Producto Duplicado", "Ya existe un producto con ese nombre en la carta.");
 
-    // Actualización instantánea local
     if (nombreOriginal !== "") {
       let idx = catalogo.findIndex(p => p.nombre === nombreOriginal);
       if (idx !== -1) {
@@ -1826,21 +1984,12 @@
     renderizarVistaProductos();
     mostrarAlerta("Listo", "Carta actualizada correctamente.", "success");
 
-    // Guardado silencioso en segundo plano
     llamarBackend('guardarProducto', { 
       nombreOriginal: nombreOriginal, 
       categoria: categoria, 
       nombre: nombre, 
       precio: precio, 
       estado: estado 
-    }).then(res => {
-      if (res && res.ok && res.productos) {
-        catalogo = res.productos;
-        actualizarDatalistCategorias();
-        if (document.getElementById('vista-carta').classList.contains('activa')) {
-          renderizarAdminCarta();
-        }
-      }
     });
   }
 
@@ -1858,8 +2007,6 @@
       nombre: p.nombre,
       precio: p.precio,
       estado: nuevoEstado
-    }).then(res => {
-      if (res && res.ok && res.productos) catalogo = res.productos;
     });
   }
 
@@ -1871,12 +2018,7 @@
       renderizarVistaProductos();
       mostrarAlerta("Eliminado", "Producto borrado de la carta.", "success");
 
-      llamarBackend('eliminarProducto', { nombre: nombre }).then(res => {
-        if (res && res.ok && res.productos) {
-          catalogo = res.productos;
-          actualizarDatalistCategorias();
-        }
-      });
+      llamarBackend('eliminarProducto', { nombre: nombre });
     });
   }
 
