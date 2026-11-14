@@ -294,10 +294,10 @@
       <div id="mdc-lista" class="p-2 rounded bg-input-theme mb-3" style="max-height: 42vh; overflow-y: auto; border: 1px solid var(--border-color);"></div>
 
       <div id="mdc-zona-superadmin" style="display:none;" class="mb-2">
-        <button class="btn btn-success w-100 py-3 fw-bold shadow-sm" id="btn-liquidar-emp" onclick="solicitarLiquidacionEmpleado()">✅ Liquidar y Borrar Planilla ($0)</button>
+        <button class="btn btn-success w-100 py-3 fw-bold shadow-sm" id="btn-liquidar-emp" onclick="solicitarLiquidacionEmpleado()">✅ Liquidar Planilla ($0)</button>
       </div>
       <div id="mdc-aviso-cajero" style="display:none;" class="text-center mb-2">
-        <small class="text-muted">Solo el Superadmin puede liquidar o borrar registros.</small>
+        <small class="text-muted">Solo el Superadmin puede liquidar o anular registros.</small>
       </div>
 
       <button class="btn btn-secondary w-100 py-2 fw-bold" onclick="cerrarModalDetalleConsumo()">Cerrar</button>
@@ -562,6 +562,7 @@
             <select id="usu-rol" class="form-select">
               <option value="mesero">Mesero</option>
               <option value="cajero">Cajero</option>
+              <option value="cocina">Cocina</option>
               <option value="superadmin">Superadmin (Dueño)</option>
             </select>
           </div>
@@ -639,7 +640,10 @@
           <textarea id="md-admin-desc" class="form-control" rows="7" placeholder="Ej:&#10;• Sopa: Sancocho de gallina&#10;• Principio: Frijoles o lentejas&#10;• Proteína: Pollo sudado / Carne asada&#10;• Acompañamiento: Arroz, ensalada y patacón&#10;• Bebida: Jugo natural o limonada"></textarea>
         </div>
 
-        <button class="btn btn-primary w-100 fw-bold py-3" id="btn-guardar-md" onclick="guardarMenuDiaAdmin()">Guardar Menú del Día</button>
+        <div class="d-grid gap-2">
+          <button class="btn btn-primary fw-bold py-3 shadow" id="btn-guardar-md" onclick="guardarMenuDiaAdmin()">🚀 Publicar Menú del Día</button>
+          <button class="btn btn-outline-danger fw-bold py-2" id="btn-quitar-md" onclick="quitarMenuDiaFantasma()">🗑️ Quitar Menú Definitivamente</button>
+        </div>
       </div>
     </div>
   </div>
@@ -683,7 +687,7 @@
   const ACCIONES_ENCOLABLES = [
     'abrirComanda', 'eliminarComanda', 'registrarMovimiento', 'pagarComanda',
     'registrarMovCaja', 'guardarUsuario', 'eliminarUsuario',
-    'guardarProducto', 'eliminarProducto', 'guardarMenuDia',
+    'guardarProducto', 'eliminarProducto', 'guardarMenuDia', 'quitarMenuDia',
     'registrarConsumoEmpleado', 'eliminarConsumoItem', 'liquidarConsumoEmpleado'
   ];
 
@@ -810,7 +814,6 @@
   async function llamarBackend(action, data = {}) {
     data.action = action;
 
-    // Si es una operación de escritura, la encolamos para garantizar entrega incluso sin internet
     if (ACCIONES_ENCOLABLES.includes(action)) {
       colaEnvios.push({
         idEnvio: Date.now() + "_" + Math.random().toString(36).slice(2, 7),
@@ -822,7 +825,6 @@
       return { ok: true, encolado: true };
     }
 
-    // Si es una consulta de lectura
     try {
       let json = await enviarPeticionDirecta(data);
       actualizarBannerRed();
@@ -875,7 +877,6 @@
     document.getElementById('cierre-caja').innerHTML = opCajas;
   }
 
-  // Carga inicial con respaldo automático desde memoria local si no hay red
   llamarBackend('obtenerCargaInicial').then(res => {
     if(!res) {
       let tieneRespaldo = cargarEstadoDesdeMemoriaLocal();
@@ -1000,7 +1001,7 @@
   }
 
   // =========================================================================
-  // MENÚ DEL DÍA (INSTANTÁNEO PARA MESEROS Y SUPERADMIN)
+  // MENÚ DEL DÍA (MEMORIA FANTASMA)
   // =========================================================================
 
   function abrirModalMenuDia() {
@@ -1063,9 +1064,31 @@
     menuDiaData = { estado: estado, precio: precio, descripcion: descripcion, fecha: fechaHoy };
     document.getElementById('md-admin-ultima-fecha').innerText = "Últ. act: " + fechaHoy;
     renderizarVistaProductos();
-    mostrarAlerta("Listo", "Menú del Día actualizado al instante.", "success");
+    mostrarAlerta("Listo", "Menú del Día publicado al instante.", "success");
 
     llamarBackend('guardarMenuDia', { estado: estado, precio: precio, descripcion: descripcion });
+  }
+
+  function quitarMenuDiaFantasma() {
+    abrirConfirmar(
+      "Quitar Menú del Día",
+      "¿Seguro que deseas quitar el Menú del Día? Desaparecerá de las pantallas de los meseros y no quedará guardado en ningún lado.",
+      () => {
+        pausaSyncMenuDiaHasta = Date.now() + 10000;
+        menuDiaData = { estado: 'Oculto', precio: 0, descripcion: '', fecha: '' };
+        document.getElementById('md-admin-estado').value = 'Oculto';
+        document.getElementById('md-admin-precio').value = '';
+        document.getElementById('md-admin-desc').value = '';
+        document.getElementById('md-admin-ultima-fecha').innerText = "";
+        renderizarVistaProductos();
+        mostrarAlerta("Quitado", "El menú desapareció de todas las pantallas sin dejar rastro.", "success");
+
+        llamarBackend('quitarMenuDia');
+      },
+      "Quitar Menú",
+      "btn-danger",
+      "🗑️"
+    );
   }
 
   // NAVEGACIÓN POR CATEGORÍAS Y BUSCADOR GLOBAL
@@ -1193,7 +1216,6 @@
 
   function sincronizacionSilenciosa() {
     if(usuarioActual === null) return;
-    // No sobrescribir datos locales mientras haya envíos pendientes en la cola offline
     if(colaEnvios.length > 0 || procesandoCola) return;
 
     llamarBackend('sincronizarFondo').then(sync => {
@@ -1478,7 +1500,6 @@
     if(tipo === 'Gasto' && !concepto) return mostrarAlerta("Error", "Escribe el concepto del gasto.");
 
     llamarBackend('hacerCierre', {fecha: fecha, caja: caja}).then(res => {
-      // Si no hay internet (res === null), se guarda directo en la cola offline sin bloquear la operación
       if (!res) {
         ejecutarGuardadoCaja(fecha, caja, tipo, concepto, monto);
         return;
@@ -1733,7 +1754,7 @@
 
     document.getElementById('mdc-lista').innerHTML = html;
     document.getElementById('mdc-total').innerText = "$" + total.toLocaleString('es-CO');
-    document.getElementById('btn-liquidar-emp').innerText = `✅ Liquidar y Borrar Planilla ($${total.toLocaleString('es-CO')})`;
+    document.getElementById('btn-liquidar-emp').innerText = `✅ Liquidar Planilla ($${total.toLocaleString('es-CO')})`;
   }
 
   function cerrarModalDetalleConsumo() {
@@ -1742,13 +1763,13 @@
   }
 
   function confirmarBorrarItemConsumo(id) {
-    abrirConfirmar("Borrar Registro", "¿Deseas eliminar este producto puntual de la planilla del empleado?", () => {
+    abrirConfirmar("Anular Registro", "¿Deseas anular este producto puntual de la planilla del empleado?", () => {
       pausaSyncConsumosHasta = Date.now() + 10000;
       consumosEliminadosEnSesion.push(String(id));
       cacheConsumos = cacheConsumos.filter(c => String(c.id) !== String(id));
       renderizarResumenConsumos();
       renderizarContenidoModalConsumo();
-      mostrarAlerta("Eliminado", "Registro borrado de la planilla.", "success");
+      mostrarAlerta("Anulado", "Registro descontado de la planilla.", "success");
 
       llamarBackend('eliminarConsumoItem', { id: id });
     });
@@ -1762,7 +1783,7 @@
 
     abrirConfirmar(
       "Liquidar Planilla",
-      `¿Confirmas que ya se descontó o pagó los $${total.toLocaleString('es-CO')} de ${emp}? Todos sus registros se borrarán de la hoja y su saldo quedará en $0.`,
+      `¿Confirmas que ya se descontó o pagó los $${total.toLocaleString('es-CO')} de ${emp}? Su saldo activo quedará en $0 y el historial pasará a Liquidado.`,
       () => {
         pausaSyncConsumosHasta = Date.now() + 10000;
         itemsEmp.forEach(x => consumosEliminadosEnSesion.push(String(x.id)));
@@ -1903,7 +1924,8 @@
     }
     let html = '';
     listaUsuarios.forEach(u => {
-      let badgeColor = u.rol.toLowerCase() === 'superadmin' ? 'bg-warning text-dark' : (u.rol.toLowerCase() === 'cajero' ? 'bg-info text-dark' : 'bg-secondary');
+      let rLow = u.rol.toLowerCase();
+      let badgeColor = rLow === 'superadmin' ? 'bg-warning text-dark' : (rLow === 'cajero' ? 'bg-info text-dark' : (rLow === 'cocina' ? 'bg-success' : 'bg-secondary'));
       let nomEsc = escaparTexto(u.nombre);
       html += `<div class="card p-3 mb-2 shadow-sm">
                  <div class="d-flex justify-content-between align-items-center">
