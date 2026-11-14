@@ -44,6 +44,10 @@
       --shadow-color: rgba(0,0,0,0.1);
     }
 
+    /* Ajuste de color para los placeholders (ejemplos) en los campos de texto */
+    .form-control::placeholder, .form-select::placeholder { color: #6b7280; opacity: 1; }
+    [data-theme="dark"] .form-control::placeholder, [data-theme="dark"] .form-select::placeholder { color: #9ca3af; opacity: 1; }
+
     body { background-color: var(--bg-body); font-family: 'Inter', sans-serif; color: var(--text-main); padding-top: 60px; padding-bottom: 80px; user-select: none; transition: background-color 0.3s, color 0.3s; }
     body.con-banner-red { padding-top: 94px; }
     .vista { display: none; padding: 15px; }
