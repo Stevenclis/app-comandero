@@ -73,7 +73,7 @@
     .mesa-body { background: transparent; border: none; flex: 1; display: flex; flex-direction: column; justify-content: center; }
 
     .alerta-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; display:none; justify-content:center; align-items:center; padding: 15px; }
-    .alerta-caja { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color); padding: 22px; border-radius: 16px; width: 100%; max-width: 390px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.8); animation: popIn 0.2s ease; max-height: 92vh; overflow-y: auto; }
+    .alerta-caja { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color); padding: 22px; border-radius: 16px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.8); animation: popIn 0.2s ease; max-height: 92vh; overflow-y: auto; }
     @keyframes popIn { 0% { transform: scale(0.8); opacity: 0;} 100% { transform: scale(1); opacity: 1;} }
     .alerta-icono { font-size: 40px; margin-bottom: 10px; }
     #pantalla-carga { position: fixed; top:0; left:0; width:100%; height:100%; background:var(--bg-body); z-index:9000; display:flex; flex-direction:column; justify-content:center; align-items:center; color: var(--text-main);}
@@ -140,7 +140,7 @@
   <div class="navbar-top" id="navbar-top">
     <div class="d-flex align-items-center">
       <button class="btn-hamburguesa" data-bs-toggle="offcanvas" data-bs-target="#menuLateral">☰</button>
-      <h4 class="m-0 fw-bold text-primary-theme" id="nav-titulo">Mesas Activas</h4>
+      <h4 class="m-0 fw-bold text-primary-theme text-truncate" id="nav-titulo" style="max-width: 175px;">Mesas Activas</h4>
     </div>
     
     <div class="d-flex align-items-center gap-2">
@@ -167,6 +167,8 @@
       <a class="menu-item" onclick="intentarNavegar(cargarComandasAbiertas)" data-bs-dismiss="offcanvas">🏠 Dashboard Mesas</a>
       <a class="menu-item text-primary-theme" id="btn-menu-venta-rapida" onclick="intentarNavegar(iniciarVentaRapida)" data-bs-dismiss="offcanvas" style="display:none;">⚡ Venta Rápida</a>
       <a class="menu-item" style="color: #0ea5e9 !important;" id="btn-menu-caja" onclick="intentarNavegar(() => cambiarVista('caja', 'Control de Caja'))" data-bs-dismiss="offcanvas" style="display:none;">💵 Control de Caja</a>
+      <a class="menu-item" style="color: #f59e0b !important;" id="btn-menu-consumos-admin" onclick="intentarNavegar(abrirConsumosAdmin)" data-bs-dismiss="offcanvas" style="display:none;">🍔 Consumo Empleados</a>
+      <a class="menu-item" style="color: #f59e0b !important;" id="btn-menu-mi-consumo" onclick="intentarNavegar(abrirMiConsumo)" data-bs-dismiss="offcanvas" style="display:none;">🧾 Mi Consumo</a>
       <a class="menu-item" onclick="intentarNavegar(cargarComandasCerradas)" data-bs-dismiss="offcanvas">✅ Historial Pagadas</a>
       <a class="menu-item" id="btn-menu-cierre" onclick="intentarNavegar(() => cambiarVista('cierre', 'Cierre de Caja'))" data-bs-dismiss="offcanvas" style="display:none;">💰 Cierre del Día</a>
 
@@ -195,7 +197,7 @@
 
   <div id="modal-confirmar" class="alerta-overlay">
     <div class="alerta-caja">
-      <div class="alerta-icono text-danger">🗑️</div>
+      <div class="alerta-icono text-danger" id="conf-icono">🗑️</div>
       <h4 id="conf-titulo" class="fw-bold mb-2 text-danger">Confirmar</h4>
       <p id="conf-mensaje" class="text-muted mb-4">¿Estás seguro?</p>
       <div class="d-flex gap-2">
@@ -272,6 +274,28 @@
     </div>
   </div>
 
+  <!-- MODAL DETALLE DE CONSUMO DE UN EMPLEADO (CAJERO Y SUPERADMIN) -->
+  <div id="modal-detalle-consumo" class="alerta-overlay">
+    <div class="alerta-caja text-start" style="max-width: 430px; border: 1.5px solid var(--gold-main);">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <h4 class="fw-bold text-primary-theme m-0" id="mdc-empleado">Empleado</h4>
+        <span class="badge bg-danger fs-6 px-3 py-2" id="mdc-total">$0</span>
+      </div>
+      <small class="text-muted d-block mb-3">Consumos acumulados sin liquidar</small>
+
+      <div id="mdc-lista" class="p-2 rounded bg-input-theme mb-3" style="max-height: 42vh; overflow-y: auto; border: 1px solid var(--border-color);"></div>
+
+      <div id="mdc-zona-superadmin" style="display:none;" class="mb-2">
+        <button class="btn btn-success w-100 py-3 fw-bold shadow-sm" id="btn-liquidar-emp" onclick="solicitarLiquidacionEmpleado()">✅ Liquidar y Borrar Planilla ($0)</button>
+      </div>
+      <div id="mdc-aviso-cajero" style="display:none;" class="text-center mb-2">
+        <small class="text-muted">Solo el Superadmin puede liquidar o borrar registros.</small>
+      </div>
+
+      <button class="btn btn-secondary w-100 py-2 fw-bold" onclick="cerrarModalDetalleConsumo()">Cerrar</button>
+    </div>
+  </div>
+
   <div id="modal-gasto-exceso" class="alerta-overlay">
     <div class="alerta-caja" style="border-color: #ef4444;">
       <div class="alerta-icono text-danger">⚠️</div>
@@ -338,6 +362,75 @@
         <button class="btn btn-danger w-100 fw-bold" onclick="guardarMovimientoCaja('Gasto')">Registrar Gasto</button>
       </div>
     </div>
+  </div>
+
+  <!-- VISTA PLANILLA CONSUMO EMPLEADOS (CAJERO Y SUPERADMIN) -->
+  <div id="vista-consumos-admin" class="vista container">
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <h5 class="fw-bold text-primary-theme mb-3">🍔 Anotar Consumo a Trabajador</h5>
+        
+        <div class="mb-2">
+          <label class="small text-muted fw-bold">¿Quién consumió?</label>
+          <select id="cons-empleado" class="form-select border-gold"></select>
+        </div>
+
+        <div class="btn-group w-100 mb-3" role="group">
+          <input type="radio" class="btn-check" name="modoConsumo" id="modo-cons-carta" autocomplete="off" checked onchange="cambiarModoConsumo()">
+          <label class="btn btn-outline-primary btn-sm fw-bold" for="modo-cons-carta">📋 De la Carta</label>
+
+          <input type="radio" class="btn-check" name="modoConsumo" id="modo-cons-manual" autocomplete="off" onchange="cambiarModoConsumo()">
+          <label class="btn btn-outline-primary btn-sm fw-bold" for="modo-cons-manual">✏️ Valor Manual</label>
+        </div>
+
+        <div id="bloque-cons-carta">
+          <div class="mb-2">
+            <label class="small text-muted fw-bold">Producto</label>
+            <select id="cons-producto-sel" class="form-select" onchange="actualizarPreviewConsumo()"></select>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-5">
+              <label class="small text-muted fw-bold">Cantidad</label>
+              <input type="number" id="cons-cantidad" class="form-control text-center fw-bold" value="1" min="1" oninput="actualizarPreviewConsumo()">
+            </div>
+            <div class="col-7">
+              <label class="small text-muted fw-bold">Total a Cargar</label>
+              <div class="form-control fw-bold text-success bg-input-theme" id="cons-preview-total">$0</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="bloque-cons-manual" style="display:none;">
+          <div class="mb-2">
+            <label class="small text-muted fw-bold">Concepto</label>
+            <input type="text" id="cons-manual-concepto" class="form-control" placeholder="Ej. Almuerzo personal, Gaseosa...">
+          </div>
+          <div class="mb-3">
+            <label class="small text-muted fw-bold">Valor ($)</label>
+            <input type="text" id="cons-manual-precio" class="form-control fw-bold" placeholder="0" onkeyup="formatearMoneda(this)">
+          </div>
+        </div>
+
+        <button class="btn btn-primary w-100 fw-bold py-2" id="btn-guardar-consumo" onclick="guardarConsumoAdmin()">Anotar en Planilla</button>
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h6 class="text-muted fw-bold m-0 text-uppercase" style="font-size: 12px;">Cuentas Activas (Toca para ver detalle)</h6>
+      <span class="badge bg-warning text-dark" id="badge-total-planilla">Total: $0</span>
+    </div>
+    <div id="lista-resumen-consumos"></div>
+  </div>
+
+  <!-- VISTA SOLO LECTURA PARA EL TRABAJADOR (MI CONSUMO) -->
+  <div id="vista-mi-consumo" class="vista container">
+    <div class="card p-3 mb-3 text-center shadow-sm border-gold">
+      <small class="text-muted text-uppercase fw-bold">Tu Saldo Acumulado en Planilla</small>
+      <h2 class="fw-bold text-danger m-0 mt-1" id="mi-consumo-total">$0</h2>
+      <small class="text-muted mt-1" style="font-size: 12px;">Se descuenta al liquidar la semana</small>
+    </div>
+    <h6 class="text-muted fw-bold mb-2 text-uppercase" style="font-size: 12px;">Detalle de tus consumos</h6>
+    <div id="lista-mi-consumo-detalle"></div>
   </div>
 
   <div id="vista-cerradas" class="vista container">
@@ -581,11 +674,13 @@
   }
 
   let cacheMesas = [], cacheDetalles = {}, cacheCerradas = [], catalogo = [], listaUsuarios = [];
+  let cacheConsumos = [];
   let menuDiaData = { estado: 'Oculto', precio: 0, descripcion: '', fecha: '' };
   let idActual = null, totalActual = 0, usuarioActual = null, miPin = "";
   let mesasCerradasEnSesion = [], mesasSeleccionadasUI = [], mesasEliminadasEnSesion = []; 
   let prodTempNombre = "", prodTempPrecio = 0, prodTempCant = 1;
   let mdModalCant = 1;
+  let empleadoDetalleModalActual = null;
   let tempGastoCaja = "", tempGastoConcepto = "", tempGastoMonto = 0;
   let categoriaActual = null;
   let accionConfirmarPendiente = null;
@@ -602,6 +697,7 @@
     cacheCerradas = res.sync.cerradas; 
     listaUsuarios = res.usuarios; 
     if(res.sync.menuDia) menuDiaData = res.sync.menuDia;
+    if(res.sync.consumos) cacheConsumos = res.sync.consumos;
 
     actualizarDatalistCategorias();
     renderizarVistaProductos();
@@ -669,6 +765,8 @@
 
     document.getElementById('btn-menu-venta-rapida').style.display = adminCajero ? 'block' : 'none';
     document.getElementById('btn-menu-caja').style.display = adminCajero ? 'block' : 'none';
+    document.getElementById('btn-menu-consumos-admin').style.display = adminCajero ? 'block' : 'none';
+    document.getElementById('btn-menu-mi-consumo').style.display = !superAdmin ? 'block' : 'none';
     document.getElementById('btn-menu-cierre').style.display = adminCajero ? 'block' : 'none';
     document.getElementById('btn-abrir-pago').style.display = adminCajero ? 'block' : 'none';
     document.getElementById('seccion-superadmin').style.display = superAdmin ? 'block' : 'none';
@@ -796,7 +894,6 @@
 
     let catalogoDisponible = catalogo.filter(p => (p.estado || 'Activo').toLowerCase() !== 'agotado');
 
-    // 1. Búsqueda global en toda la carta (incluyendo Menú del Día si coincide)
     if (texto !== "") {
       let coincideMenuDia = menuDiaData && menuDiaData.estado === 'Activo' && (
         "menu del dia".includes(texto) || 
@@ -828,7 +925,6 @@
       return;
     }
 
-    // 2. Vista principal de categorías (Menú del Día arriba como primera opción)
     if (categoriaActual === null) {
       if (menuDiaData && menuDiaData.estado === 'Activo') {
         html += `<div class="col-12 mb-1">
@@ -869,7 +965,6 @@
       return;
     }
 
-    // 3. Productos dentro de una categoría
     html += `<div class="col-12 mb-1">
                <div class="d-flex justify-content-between align-items-center p-2 rounded bg-input-theme">
                  <button class="btn btn-sm btn-primary fw-bold px-3" onclick="volverACategorias()">⬅️ Categorías</button>
@@ -910,6 +1005,15 @@
             renderizarVistaProductos();
           }
         }
+        if (sync.consumos) {
+          cacheConsumos = sync.consumos;
+          if (document.getElementById('vista-consumos-admin').classList.contains('activa')) {
+            renderizarResumenConsumos();
+          }
+          if (document.getElementById('vista-mi-consumo').classList.contains('activa')) {
+            renderizarMiConsumo();
+          }
+        }
         if (idActual === null) {
           cacheMesas = sync.mesas.filter(m => !mesasCerradasEnSesion.includes(String(m.id)) && !mesasEliminadasEnSesion.includes(String(m.id))); 
           cacheDetalles = sync.detalles;
@@ -931,9 +1035,14 @@
   }
   function cerrarAlerta() { document.getElementById('alerta-custom').style.display = 'none'; }
 
-  function abrirConfirmar(titulo, mensaje, callback) {
+  function abrirConfirmar(titulo, mensaje, callback, textoBoton = "Eliminar", colorBoton = "btn-danger", icono = "🗑️") {
     document.getElementById('conf-titulo').innerText = titulo;
+    document.getElementById('conf-titulo').className = `fw-bold mb-2 ${colorBoton === 'btn-success' ? 'text-success' : 'text-danger'}`;
+    document.getElementById('conf-icono').innerText = icono;
     document.getElementById('conf-mensaje').innerText = mensaje;
+    let btnOk = document.getElementById('btn-conf-aceptar');
+    btnOk.innerText = textoBoton;
+    btnOk.className = `btn ${colorBoton} w-50 fw-bold py-2`;
     accionConfirmarPendiente = callback;
     document.getElementById('modal-confirmar').style.display = 'flex';
   }
@@ -994,6 +1103,7 @@
         cacheMesas = sync.mesas.filter(m => !mesasCerradasEnSesion.includes(String(m.id)) && !mesasEliminadasEnSesion.includes(String(m.id))); 
         cacheDetalles = sync.detalles;
         if(sync.menuDia) menuDiaData = sync.menuDia;
+        if(sync.consumos) cacheConsumos = sync.consumos;
         actualizarSugerenciasMesas(); 
         renderizarComandasEnPantalla();
       }
@@ -1203,6 +1313,261 @@
 
       document.getElementById('resultado-cierre').style.display = 'block';
     });
+  }
+
+  // =========================================================================
+  // MÓDULO: PLANILLA DE CONSUMO INTERNO DE EMPLEADOS
+  // =========================================================================
+
+  function abrirConsumosAdmin() {
+    let selEmp = document.getElementById('cons-empleado');
+    let opEmp = '<option value="" disabled selected>Selecciona trabajador...</option>';
+    let ordenados = [...listaUsuarios].sort((a, b) => a.nombre.localeCompare(b.nombre));
+    ordenados.forEach(u => {
+      opEmp += `<option value="${escaparTexto(u.nombre)}">${u.nombre} (${u.rol})</option>`;
+    });
+    selEmp.innerHTML = opEmp;
+
+    let selProd = document.getElementById('cons-producto-sel');
+    let opProd = '<option value="" disabled selected>Selecciona producto...</option>';
+    if (menuDiaData && menuDiaData.estado === 'Activo') {
+      opProd += `<option value="Menú del Día" data-precio="${menuDiaData.precio}">🍲 Menú del Día ($${Number(menuDiaData.precio).toLocaleString('es-CO')})</option>`;
+    }
+    catalogo.forEach(p => {
+      opProd += `<option value="${escaparTexto(p.nombre)}" data-precio="${p.precio}">${p.nombre} ($${Number(p.precio).toLocaleString('es-CO')})</option>`;
+    });
+    selProd.innerHTML = opProd;
+
+    document.getElementById('modo-cons-carta').checked = true;
+    cambiarModoConsumo();
+    document.getElementById('cons-cantidad').value = 1;
+    document.getElementById('cons-manual-concepto').value = "";
+    document.getElementById('cons-manual-precio').value = "";
+    actualizarPreviewConsumo();
+
+    cambiarVista('consumos-admin', 'Consumo Empleados');
+    renderizarResumenConsumos();
+  }
+
+  function cambiarModoConsumo() {
+    let esCarta = document.getElementById('modo-cons-carta').checked;
+    document.getElementById('bloque-cons-carta').style.display = esCarta ? 'block' : 'none';
+    document.getElementById('bloque-cons-manual').style.display = esCarta ? 'none' : 'block';
+  }
+
+  function actualizarPreviewConsumo() {
+    let sel = document.getElementById('cons-producto-sel');
+    let opt = sel.options[sel.selectedIndex];
+    let precio = opt && opt.dataset.precio ? Number(opt.dataset.precio) : 0;
+    let cant = Math.max(1, Number(document.getElementById('cons-cantidad').value || 1));
+    document.getElementById('cons-preview-total').innerText = "$" + (precio * cant).toLocaleString('es-CO');
+  }
+
+  function guardarConsumoAdmin() {
+    let empleado = document.getElementById('cons-empleado').value;
+    if (!empleado) return mostrarAlerta("Falta Trabajador", "Selecciona a qué empleado se le anota el consumo.");
+
+    let esCarta = document.getElementById('modo-cons-carta').checked;
+    let producto = "", cantidad = 1, precio = 0;
+
+    if (esCarta) {
+      let sel = document.getElementById('cons-producto-sel');
+      let opt = sel.options[sel.selectedIndex];
+      if (!sel.value) return mostrarAlerta("Falta Producto", "Selecciona un producto de la lista.");
+      producto = sel.value;
+      precio = Number(opt.dataset.precio || 0);
+      cantidad = Math.max(1, Number(document.getElementById('cons-cantidad').value || 1));
+    } else {
+      producto = document.getElementById('cons-manual-concepto').value.trim();
+      precio = Number(document.getElementById('cons-manual-precio').value.replace(/\D/g, ''));
+      cantidad = 1;
+      if (!producto) return mostrarAlerta("Falta Concepto", "Escribe qué consumió el trabajador.");
+      if (precio <= 0) return mostrarAlerta("Falta Valor", "Ingresa un valor mayor a $0.");
+    }
+
+    let btn = document.getElementById('btn-guardar-consumo');
+    btn.disabled = true; btn.innerText = "Anotando...";
+
+    llamarBackend('registrarConsumoEmpleado', {
+      empleado: empleado,
+      producto: producto,
+      cantidad: cantidad,
+      precio: precio,
+      registradoPor: usuarioActual.nombre
+    }).then(res => {
+      btn.disabled = false; btn.innerText = "Anotar en Planilla";
+      if (!res || !res.ok) {
+        return mostrarAlerta("Error", "No se pudo anotar el consumo.");
+      }
+      cacheConsumos = res.consumos;
+      document.getElementById('cons-cantidad').value = 1;
+      document.getElementById('cons-manual-concepto').value = "";
+      document.getElementById('cons-manual-precio').value = "";
+      actualizarPreviewConsumo();
+      renderizarResumenConsumos();
+      mostrarAlerta("Anotado", `Cargado a la cuenta de ${empleado}.`, "success");
+    });
+  }
+
+  function renderizarResumenConsumos() {
+    let contenedor = document.getElementById('lista-resumen-consumos');
+    let agrupado = {};
+    let totalGeneral = 0;
+
+    cacheConsumos.forEach(c => {
+      if (!agrupado[c.empleado]) agrupado[c.empleado] = { total: 0, items: 0 };
+      agrupado[c.empleado].total += c.subtotal;
+      agrupado[c.empleado].items += c.cantidad;
+      totalGeneral += c.subtotal;
+    });
+
+    document.getElementById('badge-total-planilla').innerText = "Total: $" + totalGeneral.toLocaleString('es-CO');
+
+    let nombres = Object.keys(agrupado).sort((a, b) => agrupado[b].total - agrupado[a].total);
+    if (nombres.length === 0) {
+      contenedor.innerHTML = '<p class="text-center text-muted mt-3">No hay consumos pendientes por liquidar.</p>';
+      return;
+    }
+
+    let html = '';
+    nombres.forEach(emp => {
+      let empEsc = escaparTexto(emp);
+      html += `<div class="card p-3 mb-2 shadow-sm border-start border-warning border-4" style="cursor:pointer;" onclick="abrirModalDetalleConsumo('${empEsc}')">
+                 <div class="d-flex justify-content-between align-items-center">
+                   <div>
+                     <h6 class="fw-bold text-main-theme m-0">👤 ${emp}</h6>
+                     <small class="text-muted">${agrupado[emp].items} producto(s) anotados</small>
+                   </div>
+                   <div class="text-end">
+                     <h5 class="fw-bold text-danger m-0">$${agrupado[emp].total.toLocaleString('es-CO')}</h5>
+                     <small class="text-primary-theme" style="font-size: 11px;">Ver detalle ›</small>
+                   </div>
+                 </div>
+               </div>`;
+    });
+    contenedor.innerHTML = html;
+  }
+
+  function abrirModalDetalleConsumo(empleado) {
+    empleadoDetalleModalActual = empleado;
+    document.getElementById('mdc-empleado').innerText = "👤 " + empleado;
+    let esSuper = esRolSuperAdmin();
+    document.getElementById('mdc-zona-superadmin').style.display = esSuper ? 'block' : 'none';
+    document.getElementById('mdc-aviso-cajero').style.display = esSuper ? 'none' : 'block';
+
+    renderizarContenidoModalConsumo();
+    document.getElementById('modal-detalle-consumo').style.display = 'flex';
+  }
+
+  function renderizarContenidoModalConsumo() {
+    if (!empleadoDetalleModalActual) return;
+    let lista = cacheConsumos.filter(c => c.empleado.toLowerCase() === empleadoDetalleModalActual.toLowerCase());
+    let total = 0;
+    let esSuper = esRolSuperAdmin();
+    let html = '';
+
+    if (lista.length === 0) {
+      cerrarModalDetalleConsumo();
+      return;
+    }
+
+    lista.forEach(c => {
+      total += c.subtotal;
+      let btnBorrar = esSuper 
+        ? `<button class="btn btn-sm btn-outline-danger ms-2 px-2" onclick="confirmarBorrarItemConsumo('${c.id}')">🗑️</button>` 
+        : '';
+      html += `<div class="item-fila d-flex justify-content-between align-items-center">
+                 <div class="pe-2">
+                   <span class="fw-bold text-main-theme">${c.cantidad}x ${c.producto}</span>
+                   <div class="text-muted" style="font-size: 11px;">${c.fecha} ${c.hora} • Anotó: ${c.registradoPor}</div>
+                 </div>
+                 <div class="d-flex align-items-center flex-shrink-0">
+                   <span class="fw-bold text-danger">$${c.subtotal.toLocaleString('es-CO')}</span>
+                   ${btnBorrar}
+                 </div>
+               </div>`;
+    });
+
+    document.getElementById('mdc-lista').innerHTML = html;
+    document.getElementById('mdc-total').innerText = "$" + total.toLocaleString('es-CO');
+    document.getElementById('btn-liquidar-emp').innerText = `✅ Liquidar y Borrar Planilla ($${total.toLocaleString('es-CO')})`;
+  }
+
+  function cerrarModalDetalleConsumo() {
+    document.getElementById('modal-detalle-consumo').style.display = 'none';
+    empleadoDetalleModalActual = null;
+  }
+
+  function confirmarBorrarItemConsumo(id) {
+    abrirConfirmar("Borrar Registro", "¿Deseas eliminar este producto puntual de la planilla del empleado?", () => {
+      llamarBackend('eliminarConsumoItem', { id: id }).then(res => {
+        if (res && res.ok) {
+          cacheConsumos = res.consumos;
+          renderizarResumenConsumos();
+          renderizarContenidoModalConsumo();
+          mostrarAlerta("Eliminado", "Registro borrado de la planilla.", "success");
+        }
+      });
+    });
+  }
+
+  function solicitarLiquidacionEmpleado() {
+    if (!empleadoDetalleModalActual) return;
+    let emp = empleadoDetalleModalActual;
+    let total = cacheConsumos.filter(c => c.empleado.toLowerCase() === emp.toLowerCase()).reduce((acc, x) => acc + x.subtotal, 0);
+
+    abrirConfirmar(
+      "Liquidar Planilla",
+      `¿Confirmas que ya se descontó o pagó los $${total.toLocaleString('es-CO')} de ${emp}? Todos sus registros se borrarán de la hoja y su saldo quedará en $0.`,
+      () => {
+        llamarBackend('liquidarConsumoEmpleado', { empleado: emp }).then(res => {
+          if (res && res.ok) {
+            cacheConsumos = res.consumos;
+            cerrarModalDetalleConsumo();
+            renderizarResumenConsumos();
+            mostrarAlerta("Planilla Liquidada", `La cuenta de ${emp} quedó en $0.`, "success");
+          }
+        });
+      },
+      "Liquidar ($0)",
+      "btn-success",
+      "✅"
+    );
+  }
+
+  function abrirMiConsumo() {
+    cambiarVista('mi-consumo', 'Mi Consumo');
+    renderizarMiConsumo();
+  }
+
+  function renderizarMiConsumo() {
+    if (!usuarioActual) return;
+    let misItems = cacheConsumos.filter(c => c.empleado.toLowerCase() === usuarioActual.nombre.toLowerCase());
+    let total = misItems.reduce((acc, x) => acc + x.subtotal, 0);
+
+    let elTotal = document.getElementById('mi-consumo-total');
+    elTotal.innerText = "$" + total.toLocaleString('es-CO');
+    elTotal.className = total > 0 ? "fw-bold text-danger m-0 mt-1" : "fw-bold text-success m-0 mt-1";
+
+    let contenedor = document.getElementById('lista-mi-consumo-detalle');
+    if (misItems.length === 0) {
+      contenedor.innerHTML = '<p class="text-center text-muted mt-3">Estás al día. No tienes consumos anotados.</p>';
+      return;
+    }
+
+    let html = '';
+    misItems.slice().reverse().forEach(c => {
+      html += `<div class="card p-3 mb-2 shadow-sm">
+                 <div class="d-flex justify-content-between align-items-center">
+                   <div>
+                     <h6 class="fw-bold text-main-theme m-0">${c.cantidad}x ${c.producto}</h6>
+                     <small class="text-muted">${c.fecha} • ${c.hora} (Anotó: ${c.registradoPor})</small>
+                   </div>
+                   <span class="fw-bold text-danger">$${c.subtotal.toLocaleString('es-CO')}</span>
+                 </div>
+               </div>`;
+    });
+    contenedor.innerHTML = html;
   }
 
   // =========================================================================
