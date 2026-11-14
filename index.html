@@ -385,11 +385,13 @@
     <div class="btn-flotante-add" onclick="cambiarVista('nueva', 'Abrir Mesa')">✚</div>
   </div>
 
-  <div id="vista-nueva" class="vista container">
+<div id="vista-nueva" class="vista container" style="padding-bottom: 90px;">
     <div class="alert mb-3 fw-bold bg-input-theme text-primary-theme">Atiende: <span id="label-encargado-nueva"></span></div>
     <label class="text-muted fw-bold mb-2">Selecciona la(s) mesa(s):</label>
     <div class="row g-2 mb-4" id="grid-mesas"></div>
-    <button class="btn btn-success btn-lg w-100 py-3 shadow-sm" onclick="crearComanda()">Abrir y Pedir</button>
+    <div class="panel-flotante">
+      <button id="btn-abrir-y-pedir" class="btn btn-success btn-lg w-100 py-2 fw-bold shadow-sm" onclick="crearComanda()">Abrir y Pedir</button>
+    </div>
   </div>
 
   <div id="vista-caja" class="vista container">
@@ -1386,18 +1388,36 @@
     contenedor.innerHTML = html;
   }
 
+function actualizarTextoBotonAbrir() {
+    let btn = document.getElementById('btn-abrir-y-pedir');
+    if (!btn) return;
+    if (mesasSeleccionadasUI.length > 0) {
+      btn.innerText = `Abrir y Pedir (${mesasSeleccionadasUI.join(' + ')})`;
+    } else {
+      btn.innerText = 'Abrir y Pedir';
+    }
+  }
+
   function actualizarSugerenciasMesas() {
     let ocupadas = cacheMesas.map(m => m.referencia); let ocupadasDesglosadas = [];
     ocupadas.forEach(ref => { let partes = ref.split('+').map(p => p.trim().toLowerCase()); ocupadasDesglosadas = ocupadasDesglosadas.concat(partes); });
+    mesasSeleccionadasUI = mesasSeleccionadasUI.filter(m => !ocupadasDesglosadas.includes(m.toLowerCase().trim()));
     let html = '';
-    arrayTodasLasMesas.forEach(m => { if(!ocupadasDesglosadas.includes(m.toLowerCase().trim())) { html += `<div class="col-4"><div id="btn-m-${m}" class="btn-mesa" onclick="toggleMesaUI('${m}')">${m}</div></div>`; } });
-    document.getElementById('grid-mesas').innerHTML = html; mesasSeleccionadasUI = [];
+    arrayTodasLasMesas.forEach(m => { 
+      if(!ocupadasDesglosadas.includes(m.toLowerCase().trim())) { 
+        let claseExtra = mesasSeleccionadasUI.includes(m) ? ' seleccionada' : '';
+        html += `<div class="col-4"><div id="btn-m-${m}" class="btn-mesa${claseExtra}" onclick="toggleMesaUI('${m}')">${m}</div></div>`; 
+      } 
+    });
+    document.getElementById('grid-mesas').innerHTML = html;
+    actualizarTextoBotonAbrir();
   }
 
   function toggleMesaUI(nombreMesa) {
     let div = document.getElementById('btn-m-' + nombreMesa);
     if(mesasSeleccionadasUI.includes(nombreMesa)) { mesasSeleccionadasUI = mesasSeleccionadasUI.filter(m => m !== nombreMesa); div.classList.remove('seleccionada'); } 
     else { mesasSeleccionadasUI.push(nombreMesa); div.classList.add('seleccionada'); }
+    actualizarTextoBotonAbrir();
   }
 
   function sincronizacionSilenciosa() {
@@ -1485,7 +1505,11 @@
     document.getElementById('vista-' + id).classList.add('activa');
     document.getElementById('panel-cobro').style.display = (id === 'detalle') ? 'flex' : 'none';
     if(tituloNav !== "") document.getElementById('nav-titulo').innerText = tituloNav;
-    if(id === 'nueva') document.getElementById('label-encargado-nueva').innerText = usuarioActual.nombre;
+    if(id === 'nueva') {
+      document.getElementById('label-encargado-nueva').innerText = usuarioActual.nombre;
+      mesasSeleccionadasUI = [];
+      actualizarSugerenciasMesas();
+    }
     if(id !== 'lista' && id !== 'login') { document.getElementById('btn-nav-inicio').style.display = 'block'; } else { document.getElementById('btn-nav-inicio').style.display = 'none'; }
   }
 
