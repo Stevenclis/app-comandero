@@ -310,6 +310,7 @@
 
   <datalist id="lista-mesas"></datalist>
   <datalist id="lista-categorias"></datalist>
+  <datalist id="lista-productos-consumo"></datalist> <!-- NUEVO: Datalist para buscar productos en planilla -->
 
   <div id="vista-login" class="vista activa container pt-4 text-center">
     <img src="logo.png" class="logo-login mx-auto d-block" alt="Altamira">
@@ -385,8 +386,8 @@
 
         <div id="bloque-cons-carta">
           <div class="mb-2">
-            <label class="small text-muted fw-bold">Producto</label>
-            <select id="cons-producto-sel" class="form-select" onchange="actualizarPreviewConsumo()"></select>
+            <label class="small text-muted fw-bold">Producto (Escribe para buscar rápido)</label>
+            <input type="text" id="cons-producto-input" list="lista-productos-consumo" class="form-control border-gold" placeholder="🔍 Buscar producto en la carta..." oninput="actualizarPreviewConsumo()" onchange="actualizarPreviewConsumo()">
           </div>
           <div class="row g-2 mb-3">
             <div class="col-5">
@@ -1328,15 +1329,17 @@
     });
     selEmp.innerHTML = opEmp;
 
-    let selProd = document.getElementById('cons-producto-sel');
-    let opProd = '<option value="" disabled selected>Selecciona producto...</option>';
+    // Actualizar el Datalist del buscador de productos para Consumos
+    let datalistProd = document.getElementById('lista-productos-consumo');
+    let opProd = '';
     if (menuDiaData && menuDiaData.estado === 'Activo') {
-      opProd += `<option value="Menú del Día" data-precio="${menuDiaData.precio}">🍲 Menú del Día ($${Number(menuDiaData.precio).toLocaleString('es-CO')})</option>`;
+      opProd += `<option value="Menú del Día">`;
     }
     catalogo.forEach(p => {
-      opProd += `<option value="${escaparTexto(p.nombre)}" data-precio="${p.precio}">${p.nombre} ($${Number(p.precio).toLocaleString('es-CO')})</option>`;
+      opProd += `<option value="${escaparTexto(p.nombre)}">`;
     });
-    selProd.innerHTML = opProd;
+    datalistProd.innerHTML = opProd;
+    document.getElementById('cons-producto-input').value = "";
 
     document.getElementById('modo-cons-carta').checked = true;
     cambiarModoConsumo();
@@ -1356,9 +1359,16 @@
   }
 
   function actualizarPreviewConsumo() {
-    let sel = document.getElementById('cons-producto-sel');
-    let opt = sel.options[sel.selectedIndex];
-    let precio = opt && opt.dataset.precio ? Number(opt.dataset.precio) : 0;
+    let inputVal = document.getElementById('cons-producto-input').value.trim();
+    let precio = 0;
+    
+    if (inputVal.toLowerCase() === "menú del día" || inputVal.toLowerCase() === "menu del dia") {
+      if (menuDiaData && menuDiaData.estado === 'Activo') precio = Number(menuDiaData.precio);
+    } else {
+      let pObj = catalogo.find(p => p.nombre.toLowerCase() === inputVal.toLowerCase());
+      if (pObj) precio = Number(pObj.precio);
+    }
+
     let cant = Math.max(1, Number(document.getElementById('cons-cantidad').value || 1));
     document.getElementById('cons-preview-total').innerText = "$" + (precio * cant).toLocaleString('es-CO');
   }
@@ -1371,12 +1381,21 @@
     let producto = "", cantidad = 1, precio = 0;
 
     if (esCarta) {
-      let sel = document.getElementById('cons-producto-sel');
-      let opt = sel.options[sel.selectedIndex];
-      if (!sel.value) return mostrarAlerta("Falta Producto", "Selecciona un producto de la lista.");
-      producto = sel.value;
-      precio = Number(opt.dataset.precio || 0);
+      producto = document.getElementById('cons-producto-input').value.trim();
+      if (!producto) return mostrarAlerta("Falta Producto", "Escribe y selecciona un producto de la carta.");
+
+      if (producto.toLowerCase() === "menú del día" || producto.toLowerCase() === "menu del dia") {
+        if (!menuDiaData || menuDiaData.estado !== 'Activo') return mostrarAlerta("Agotado", "El Menú del Día no está activo hoy.");
+        precio = Number(menuDiaData.precio);
+        producto = "Menú del Día";
+      } else {
+        let pObj = catalogo.find(p => p.nombre.toLowerCase() === producto.toLowerCase());
+        if (!pObj) return mostrarAlerta("Producto Inválido", "El producto no existe en la carta. Revisa si lo escribiste bien.");
+        precio = Number(pObj.precio);
+        producto = pObj.nombre;
+      }
       cantidad = Math.max(1, Number(document.getElementById('cons-cantidad').value || 1));
+      
     } else {
       producto = document.getElementById('cons-manual-concepto').value.trim();
       precio = Number(document.getElementById('cons-manual-precio').value.replace(/\D/g, ''));
@@ -1400,6 +1419,7 @@
         return mostrarAlerta("Error", "No se pudo anotar el consumo.");
       }
       cacheConsumos = res.consumos;
+      document.getElementById('cons-producto-input').value = "";
       document.getElementById('cons-cantidad').value = 1;
       document.getElementById('cons-manual-concepto').value = "";
       document.getElementById('cons-manual-precio').value = "";
