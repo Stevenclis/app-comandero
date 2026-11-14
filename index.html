@@ -504,7 +504,7 @@
   <div id="vista-cierre" class="vista container">
     <input type="date" id="cierre-fecha" class="form-control form-control-lg mb-3">
     <select id="cierre-caja" class="form-select form-select-lg mb-3"></select>
-    <button class="btn btn-primary btn-lg w-100 mb-3 py-3 shadow-sm" onclick="calcularCierre()">Calcular Cuadre</button>
+    <button class="btn btn-primary btn-lg w-100 mb-3 py-3 shadow-sm" id="btn-calcular-cierre" onclick="calcularCierre()">Calcular Cuadre</button>
     
     <div id="resultado-cierre" class="card p-3 shadow-sm border-0 bg-input-theme" style="display:none;">
       <h6 class="text-muted mb-1">Base Inicial (+)</h6>
@@ -674,8 +674,24 @@
     } catch(e) { console.error("Error API:", e); return null; }
   }
 
+  function obtenerFechaHoyLocal() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  function obtenerHoraActualLocal() {
+    const d = new Date();
+    const h = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    return `${h}:${min}`;
+  }
+
   let cacheMesas = [], cacheDetalles = {}, cacheCerradas = [], catalogo = [], listaUsuarios = [];
-  let cacheConsumos = [];
+  let cacheConsumos = [], consumosEliminadosEnSesion = [];
+  let pausaSyncConsumosHasta = 0, pausaSyncMenuDiaHasta = 0;
   let menuDiaData = { estado: 'Oculto', precio: 0, descripcion: '', fecha: '' };
   let idActual = null, totalActual = 0, usuarioActual = null, miPin = "";
   let mesasCerradasEnSesion = [], mesasSeleccionadasUI = [], mesasEliminadasEnSesion = []; 
@@ -799,7 +815,7 @@
   }
 
   // =========================================================================
-  // MENÚ DEL DÍA (MODAL PARA MESEROS Y CONFIGURACIÓN PARA SUPERADMIN)
+  // MENÚ DEL DÍA (INSTANTÁNEO PARA MESEROS Y SUPERADMIN)
   // =========================================================================
 
   function abrirModalMenuDia() {
@@ -857,18 +873,19 @@
       return mostrarAlerta("Falta Desglose", "Escribe qué incluye el Menú del Día para que los meseros lo puedan leer.");
     }
 
-    let btn = document.getElementById('btn-guardar-md');
-    btn.disabled = true; btn.innerText = "Guardando...";
+    // Actualización instantánea local
+    let fechaHoy = obtenerFechaHoyLocal();
+    pausaSyncMenuDiaHasta = Date.now() + 10000;
+    menuDiaData = { estado: estado, precio: precio, descripcion: descripcion, fecha: fechaHoy };
+    document.getElementById('md-admin-ultima-fecha').innerText = "Últ. act: " + fechaHoy;
+    renderizarVistaProductos();
+    mostrarAlerta("Listo", "Menú del Día actualizado al instante.", "success");
 
+    // Guardado silencioso en Google Sheets
     llamarBackend('guardarMenuDia', { estado: estado, precio: precio, descripcion: descripcion }).then(res => {
-      btn.disabled = false; btn.innerText = "Guardar Menú del Día";
-      if (!res || !res.ok) {
-        return mostrarAlerta("Error", "No se pudo guardar el Menú del Día.");
+      if (res && res.ok && res.menuDia) {
+        menuDiaData = res.menuDia;
       }
-      menuDiaData = res.menuDia;
-      document.getElementById('md-admin-ultima-fecha').innerText = menuDiaData.fecha ? ("Últ. act: " + menuDiaData.fecha) : "";
-      renderizarVistaProductos();
-      mostrarAlerta("Listo", "Menú del Día actualizado para todos los meseros.", "success");
     });
   }
 
@@ -999,15 +1016,15 @@
     if(usuarioActual === null) return;
     llamarBackend('sincronizarFondo').then(sync => {
       if(sync) {
-        if (sync.menuDia) {
+        if (sync.menuDia && Date.now() > pausaSyncMenuDiaHasta) {
           let cambioMenu = JSON.stringify(menuDiaData) !== JSON.stringify(sync.menuDia);
           menuDiaData = sync.menuDia;
           if (cambioMenu && document.getElementById('vista-detalle').classList.contains('activa')) {
             renderizarVistaProductos();
           }
         }
-        if (sync.consumos) {
-          cacheConsumos = sync.consumos;
+        if (sync.consumos && Date.now() > pausaSyncConsumosHasta) {
+          cacheConsumos = sync.consumos.filter(c => !consumosEliminadosEnSesion.includes(String(c.id)));
           if (document.getElementById('vista-consumos-admin').classList.contains('activa')) {
             renderizarResumenConsumos();
           }
@@ -1103,8 +1120,8 @@
       if(sync) {
         cacheMesas = sync.mesas.filter(m => !mesasCerradasEnSesion.includes(String(m.id)) && !mesasEliminadasEnSesion.includes(String(m.id))); 
         cacheDetalles = sync.detalles;
-        if(sync.menuDia) menuDiaData = sync.menuDia;
-        if(sync.consumos) cacheConsumos = sync.consumos;
+        if(sync.menuDia && Date.now() > pausaSyncMenuDiaHasta) menuDiaData = sync.menuDia;
+        if(sync.consumos && Date.now() > pausaSyncConsumosHasta) cacheConsumos = sync.consumos.filter(c => !consumosEliminadosEnSesion.includes(String(c.id)));
         actualizarSugerenciasMesas(); 
         renderizarComandasEnPantalla();
       }
@@ -1260,7 +1277,7 @@
   }
 
   function guardarMovimientoCaja(tipo) {
-    let fecha = new Date().toISOString().split('T')[0];
+    let fecha = obtenerFechaHoyLocal();
     let caja = (tipo === 'Base') ? document.getElementById('sel-caja-base').value : document.getElementById('sel-caja-gasto').value;
     let montoRaw = (tipo === 'Base') ? document.getElementById('in-base').value : document.getElementById('in-gasto-monto').value;
     let monto = Number(montoRaw.replace(/\D/g, ''));
@@ -1272,10 +1289,10 @@
 
     llamarBackend('hacerCierre', {fecha: fecha, caja: caja}).then(res => {
       if(tipo === 'Base') {
-        if(res.base > 0) { mostrarAlerta("Atención", "Ya existe una base registrada para esta caja hoy."); } 
+        if(res && res.base > 0) { mostrarAlerta("Atención", "Ya existe una base registrada para esta caja hoy."); } 
         else { ejecutarGuardadoCaja(fecha, caja, tipo, concepto, monto); }
       } else if (tipo === 'Gasto') {
-        if(monto > res.efectivoEsperado) {
+        if(res && monto > res.efectivoEsperado) {
           tempGastoCaja = caja; tempGastoConcepto = concepto; tempGastoMonto = monto;
           document.getElementById('gasto-exceso-mensaje').innerText = `Estás intentando gastar $${monto.toLocaleString('es-CO')}, pero el efectivo esperado en caja es de solo $${res.efectivoEsperado.toLocaleString('es-CO')}.`;
           document.getElementById('modal-gasto-exceso').style.display = 'flex';
@@ -1285,7 +1302,7 @@
   }
 
   function forzarGasto() {
-    let fecha = new Date().toISOString().split('T')[0];
+    let fecha = obtenerFechaHoyLocal();
     document.getElementById('modal-gasto-exceso').style.display = 'none';
     ejecutarGuardadoCaja(fecha, tempGastoCaja, 'Gasto', tempGastoConcepto, tempGastoMonto);
   }
@@ -1300,7 +1317,12 @@
     let fecha = document.getElementById('cierre-fecha').value, caja = document.getElementById('cierre-caja').value;
     if(!fecha || !caja) return mostrarAlerta("Faltan Filtros", "Selecciona una fecha y una Caja.");
     
+    let btn = document.getElementById('btn-calcular-cierre');
+    btn.disabled = true; btn.innerText = "Calculando...";
+
     llamarBackend('hacerCierre', {fecha: fecha, caja: caja}).then(res => {
+      btn.disabled = false; btn.innerText = "Calcular Cuadre";
+      if(!res) return mostrarAlerta("Error", "No se pudo consultar el cierre.");
       document.getElementById('res-base').innerText = res.base.toLocaleString('es-CO');
       document.getElementById('res-efe').innerText = res.efectivo.toLocaleString('es-CO');
       document.getElementById('res-gas').innerText = res.gastos.toLocaleString('es-CO');
@@ -1317,7 +1339,7 @@
   }
 
   // =========================================================================
-  // MÓDULO: PLANILLA DE CONSUMO INTERNO DE EMPLEADOS
+  // MÓDULO: PLANILLA DE CONSUMO INTERNO DE EMPLEADOS (100% INSTANTÁNEO)
   // =========================================================================
 
   function abrirConsumosAdmin() {
@@ -1403,9 +1425,31 @@
       if (precio <= 0) return mostrarAlerta("Falta Valor", "Ingresa un valor mayor a $0.");
     }
 
-    let btn = document.getElementById('btn-guardar-consumo');
-    btn.disabled = true; btn.innerText = "Anotando...";
+    // Actualización instantánea local
+    pausaSyncConsumosHasta = Date.now() + 10000;
+    let tempId = String(Date.now());
+    let nuevoConsumo = {
+      id: tempId,
+      fecha: obtenerFechaHoyLocal(),
+      hora: obtenerHoraActualLocal(),
+      empleado: empleado,
+      producto: producto,
+      cantidad: cantidad,
+      precio: precio,
+      subtotal: cantidad * precio,
+      registradoPor: usuarioActual.nombre
+    };
+    cacheConsumos.push(nuevoConsumo);
 
+    document.getElementById('cons-producto-input').value = "";
+    document.getElementById('cons-cantidad').value = 1;
+    document.getElementById('cons-manual-concepto').value = "";
+    document.getElementById('cons-manual-precio').value = "";
+    actualizarPreviewConsumo();
+    renderizarResumenConsumos();
+    mostrarAlerta("Anotado", `Cargado a la cuenta de ${empleado}.`, "success");
+
+    // Guardado silencioso en segundo plano
     llamarBackend('registrarConsumoEmpleado', {
       empleado: empleado,
       producto: producto,
@@ -1413,18 +1457,15 @@
       precio: precio,
       registradoPor: usuarioActual.nombre
     }).then(res => {
-      btn.disabled = false; btn.innerText = "Anotar en Planilla";
-      if (!res || !res.ok) {
-        return mostrarAlerta("Error", "No se pudo anotar el consumo.");
+      if (res && res.ok && res.consumos) {
+        cacheConsumos = res.consumos.filter(c => !consumosEliminadosEnSesion.includes(String(c.id)));
+        if (document.getElementById('vista-consumos-admin').classList.contains('activa')) {
+          renderizarResumenConsumos();
+        }
+        if (empleadoDetalleModalActual) {
+          renderizarContenidoModalConsumo();
+        }
       }
-      cacheConsumos = res.consumos;
-      document.getElementById('cons-producto-input').value = "";
-      document.getElementById('cons-cantidad').value = 1;
-      document.getElementById('cons-manual-concepto').value = "";
-      document.getElementById('cons-manual-precio').value = "";
-      actualizarPreviewConsumo();
-      renderizarResumenConsumos();
-      mostrarAlerta("Anotado", `Cargado a la cuenta de ${empleado}.`, "success");
     });
   }
 
@@ -1519,12 +1560,18 @@
 
   function confirmarBorrarItemConsumo(id) {
     abrirConfirmar("Borrar Registro", "¿Deseas eliminar este producto puntual de la planilla del empleado?", () => {
+      pausaSyncConsumosHasta = Date.now() + 10000;
+      consumosEliminadosEnSesion.push(String(id));
+      cacheConsumos = cacheConsumos.filter(c => String(c.id) !== String(id));
+      renderizarResumenConsumos();
+      renderizarContenidoModalConsumo();
+      mostrarAlerta("Eliminado", "Registro borrado de la planilla.", "success");
+
       llamarBackend('eliminarConsumoItem', { id: id }).then(res => {
-        if (res && res.ok) {
-          cacheConsumos = res.consumos;
+        if (res && res.ok && res.consumos) {
+          cacheConsumos = res.consumos.filter(c => !consumosEliminadosEnSesion.includes(String(c.id)));
           renderizarResumenConsumos();
-          renderizarContenidoModalConsumo();
-          mostrarAlerta("Eliminado", "Registro borrado de la planilla.", "success");
+          if (empleadoDetalleModalActual) renderizarContenidoModalConsumo();
         }
       });
     });
@@ -1533,18 +1580,24 @@
   function solicitarLiquidacionEmpleado() {
     if (!empleadoDetalleModalActual) return;
     let emp = empleadoDetalleModalActual;
-    let total = cacheConsumos.filter(c => c.empleado.toLowerCase() === emp.toLowerCase()).reduce((acc, x) => acc + x.subtotal, 0);
+    let itemsEmp = cacheConsumos.filter(c => c.empleado.toLowerCase() === emp.toLowerCase());
+    let total = itemsEmp.reduce((acc, x) => acc + x.subtotal, 0);
 
     abrirConfirmar(
       "Liquidar Planilla",
       `¿Confirmas que ya se descontó o pagó los $${total.toLocaleString('es-CO')} de ${emp}? Todos sus registros se borrarán de la hoja y su saldo quedará en $0.`,
       () => {
+        pausaSyncConsumosHasta = Date.now() + 10000;
+        itemsEmp.forEach(x => consumosEliminadosEnSesion.push(String(x.id)));
+        cacheConsumos = cacheConsumos.filter(c => c.empleado.toLowerCase() !== emp.toLowerCase());
+        cerrarModalDetalleConsumo();
+        renderizarResumenConsumos();
+        mostrarAlerta("Planilla Liquidada", `La cuenta de ${emp} quedó en $0.`, "success");
+
         llamarBackend('liquidarConsumoEmpleado', { empleado: emp }).then(res => {
-          if (res && res.ok) {
-            cacheConsumos = res.consumos;
-            cerrarModalDetalleConsumo();
+          if (res && res.ok && res.consumos) {
+            cacheConsumos = res.consumos.filter(c => !consumosEliminadosEnSesion.includes(String(c.id)));
             renderizarResumenConsumos();
-            mostrarAlerta("Planilla Liquidada", `La cuenta de ${emp} quedó en $0.`, "success");
           }
         });
       },
@@ -1590,7 +1643,7 @@
   }
 
   // =========================================================================
-  // LÓGICA SUPERADMIN: GESTIÓN DE USUARIOS
+  // LÓGICA SUPERADMIN: GESTIÓN DE USUARIOS (INSTANTÁNEO)
   // =========================================================================
 
   function abrirGestionUsuarios() {
@@ -1631,18 +1684,38 @@
     if (!nombre) return mostrarAlerta("Falta Nombre", "Escribe el nombre del trabajador.");
     if (pin.length !== 4) return mostrarAlerta("PIN Inválido", "El PIN debe tener exactamente 4 números.");
 
-    let btn = document.getElementById('btn-guardar-usu');
-    btn.disabled = true; btn.innerText = "Guardando...";
+    let duplicado = listaUsuarios.find(u => u.pin === pin && u.pin !== pinOriginal);
+    if (duplicado) return mostrarAlerta("PIN Duplicado", "Ese PIN ya está asignado a otro trabajador.");
 
-    llamarBackend('guardarUsuario', { pinOriginal: pinOriginal, nombre: nombre, pin: pin, rol: rol }).then(res => {
-      btn.disabled = false; btn.innerText = "Guardar Usuario";
-      if (!res || !res.ok) {
-        return mostrarAlerta("Error", (res && res.error) ? res.error : "No se pudo guardar el usuario.");
+    // Actualización instantánea local
+    if (pinOriginal !== "") {
+      let idx = listaUsuarios.findIndex(u => u.pin === pinOriginal);
+      if (idx !== -1) {
+        listaUsuarios[idx] = { pin: pin, nombre: nombre, rol: rol };
       }
-      listaUsuarios = res.usuarios;
-      limpiarFormUsuario();
-      renderizarAdminUsuarios();
-      mostrarAlerta("Listo", "Usuario guardado en el sistema.", "success");
+      if (usuarioActual && usuarioActual.pin === pinOriginal) {
+        usuarioActual.pin = pin;
+        usuarioActual.nombre = nombre;
+        usuarioActual.rol = rol;
+        document.getElementById('label-usuario-activo').innerText = nombre;
+        document.getElementById('label-rol-activo').innerText = rol;
+      }
+    } else {
+      listaUsuarios.push({ pin: pin, nombre: nombre, rol: rol });
+    }
+
+    limpiarFormUsuario();
+    renderizarAdminUsuarios();
+    mostrarAlerta("Listo", "Usuario guardado en el sistema.", "success");
+
+    // Guardado silencioso en segundo plano
+    llamarBackend('guardarUsuario', { pinOriginal: pinOriginal, nombre: nombre, pin: pin, rol: rol }).then(res => {
+      if (res && res.ok && res.usuarios) {
+        listaUsuarios = res.usuarios;
+        if (document.getElementById('vista-usuarios').classList.contains('activa')) {
+          renderizarAdminUsuarios();
+        }
+      }
     });
   }
 
@@ -1651,11 +1724,13 @@
       return mostrarAlerta("Acción Bloqueada", "No puedes eliminar tu propio usuario mientras tienes sesión abierta.");
     }
     abrirConfirmar("Eliminar Usuario", `¿Seguro que deseas eliminar a ${nombre}? Ya no podrá ingresar al sistema.`, () => {
+      listaUsuarios = listaUsuarios.filter(u => u.pin !== pin);
+      renderizarAdminUsuarios();
+      mostrarAlerta("Eliminado", "Usuario borrado correctamente.", "success");
+
       llamarBackend('eliminarUsuario', { pin: pin }).then(res => {
-        if (res && res.ok) {
+        if (res && res.ok && res.usuarios) {
           listaUsuarios = res.usuarios;
-          renderizarAdminUsuarios();
-          mostrarAlerta("Eliminado", "Usuario borrado correctamente.", "success");
         }
       });
     });
@@ -1688,7 +1763,7 @@
   }
 
   // =========================================================================
-  // LÓGICA SUPERADMIN: GESTIÓN DE CARTA (PRODUCTOS Y PRECIOS)
+  // LÓGICA SUPERADMIN: GESTIÓN DE CARTA (INSTANTÁNEO)
   // =========================================================================
 
   function abrirGestionCarta() {
@@ -1732,9 +1807,26 @@
     if (!categoria) return mostrarAlerta("Falta Categoría", "Escribe o elige una categoría.");
     if (!nombre) return mostrarAlerta("Falta Nombre", "Escribe el nombre del producto.");
 
-    let btn = document.getElementById('btn-guardar-prod');
-    btn.disabled = true; btn.innerText = "Guardando...";
+    let duplicado = catalogo.find(p => p.nombre.toLowerCase() === nombre.toLowerCase() && p.nombre.toLowerCase() !== nombreOriginal.toLowerCase());
+    if (duplicado) return mostrarAlerta("Producto Duplicado", "Ya existe un producto con ese nombre en la carta.");
 
+    // Actualización instantánea local
+    if (nombreOriginal !== "") {
+      let idx = catalogo.findIndex(p => p.nombre === nombreOriginal);
+      if (idx !== -1) {
+        catalogo[idx] = { categoria: categoria, nombre: nombre, precio: precio, estado: estado };
+      }
+    } else {
+      catalogo.push({ categoria: categoria, nombre: nombre, precio: precio, estado: estado });
+    }
+
+    actualizarDatalistCategorias();
+    limpiarFormProducto();
+    renderizarAdminCarta();
+    renderizarVistaProductos();
+    mostrarAlerta("Listo", "Carta actualizada correctamente.", "success");
+
+    // Guardado silencioso en segundo plano
     llamarBackend('guardarProducto', { 
       nombreOriginal: nombreOriginal, 
       categoria: categoria, 
@@ -1742,15 +1834,13 @@
       precio: precio, 
       estado: estado 
     }).then(res => {
-      btn.disabled = false; btn.innerText = "Guardar Producto";
-      if (!res || !res.ok) {
-        return mostrarAlerta("Error", (res && res.error) ? res.error : "No se pudo guardar el producto.");
+      if (res && res.ok && res.productos) {
+        catalogo = res.productos;
+        actualizarDatalistCategorias();
+        if (document.getElementById('vista-carta').classList.contains('activa')) {
+          renderizarAdminCarta();
+        }
       }
-      catalogo = res.productos;
-      actualizarDatalistCategorias();
-      limpiarFormProducto();
-      renderizarAdminCarta();
-      mostrarAlerta("Listo", "Carta actualizada correctamente.", "success");
     });
   }
 
@@ -1760,6 +1850,8 @@
     let nuevoEstado = (p.estado === 'Agotado') ? 'Activo' : 'Agotado';
     p.estado = nuevoEstado;
     renderizarAdminCarta();
+    renderizarVistaProductos();
+
     llamarBackend('guardarProducto', {
       nombreOriginal: p.nombre,
       categoria: p.categoria,
@@ -1767,18 +1859,22 @@
       precio: p.precio,
       estado: nuevoEstado
     }).then(res => {
-      if (res && res.ok) catalogo = res.productos;
+      if (res && res.ok && res.productos) catalogo = res.productos;
     });
   }
 
   function confirmarEliminarProducto(nombre) {
     abrirConfirmar("Eliminar Producto", `¿Seguro que deseas borrar "${nombre}" de la carta?`, () => {
+      catalogo = catalogo.filter(p => p.nombre !== nombre);
+      actualizarDatalistCategorias();
+      renderizarAdminCarta();
+      renderizarVistaProductos();
+      mostrarAlerta("Eliminado", "Producto borrado de la carta.", "success");
+
       llamarBackend('eliminarProducto', { nombre: nombre }).then(res => {
-        if (res && res.ok) {
+        if (res && res.ok && res.productos) {
           catalogo = res.productos;
           actualizarDatalistCategorias();
-          renderizarAdminCarta();
-          mostrarAlerta("Eliminado", "Producto borrado de la carta.", "success");
         }
       });
     });
