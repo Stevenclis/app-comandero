@@ -21,6 +21,15 @@ function doPost(e) {
     if(action === 'obtenerDetalleTicket') output = obtenerDetalleTicket(data.id);
     if(action === 'registrarMovCaja') { registrarMovCaja(data.fecha, data.caja, data.tipo, data.concepto, data.monto); output = {ok: true}; }
     if(action === 'hacerCierre') output = hacerCierre(data.fecha, data.caja);
+    if(action === 'obtenerEstadoCajas') output = obtenerEstadoCajas(data.fecha);
+    if(action === 'registrarBaseCaja') output = registrarBaseCaja(data.fecha, data.caja, data.monto);
+    if(action === 'ajustarSaldoCajaFuerte') output = ajustarSaldoCajaFuerte(data.fecha, data.tipoAjuste, data.monto, data.concepto);
+    if(action === 'ajustarSaldoBanco') output = ajustarSaldoBanco(data.fecha, data.tipoAjuste, data.monto, data.concepto);
+    if(action === 'consignarACajaFuerte') output = consignarACajaFuerte(data.fecha, data.caja, data.monto);
+    if(action === 'registrarGastoDetallado') output = registrarGastoDetallado(data.fecha, data.concepto, data.desglose, data.pendienteId);
+    if(action === 'guardarFacturaPendiente') output = guardarFacturaPendiente(data.fecha, data.concepto, data.monto);
+    if(action === 'eliminarFacturaPendiente') output = eliminarFacturaPendiente(data.id);
+    if(action === 'hacerCierreDetallado') output = hacerCierreDetallado(data.fecha, data.caja);
 
     // ACCIONES EXCLUSIVAS SUPERADMIN
     if(action === 'guardarUsuario') output = guardarUsuario(data.pinOriginal, data.nombre, data.pin, data.rol);
@@ -183,7 +192,12 @@ function pagarComanda(idComanda, total, efectivo, transferencia, caja) {
       const fila = i + 1;
       hComandas.getRange(fila, 3).setValue('Pagada'); hComandas.getRange(fila, 6).setValue(total);
       hComandas.getRange(fila, 7).setValue(efectivo); hComandas.getRange(fila, 8).setValue(transferencia);
-      hComandas.getRange(fila, 9).setValue(caja); return true;
+      hComandas.getRange(fila, 9).setValue(caja);
+      const montoTrans = Number(String(transferencia || '0').replace(/\D/g, '')) || 0;
+      if (montoTrans > 0 && typeof _sumarTransferenciaBanco === 'function') {
+        _sumarTransferenciaBanco(montoTrans);
+      }
+      return true;
     }
   }
 }
