@@ -16,6 +16,7 @@ function doPost(e) {
     if(action === 'sincronizarFondo') output = sincronizarFondo();
     if(action === 'abrirComanda') { abrirComandaDesdeApp(data.id, data.encargado, data.referencia); output = {ok: true}; }
     if(action === 'eliminarComanda') { eliminarComanda(data.id); output = {ok: true}; }
+    if(action === 'cambiarMesero') { cambiarMeseroComanda(data.id, data.nuevoEncargado); output = {ok: true}; }
     if(action === 'registrarMovimiento') { registrarMovimientoFondo(data.id, data.nombre, data.precio, data.cantidad); output = {ok: true}; }
     if(action === 'pagarComanda') { pagarComanda(data.id, data.total, data.efe, data.trans, data.caja); output = {ok: true}; }
     if(action === 'obtenerDetalleTicket') output = obtenerDetalleTicket(data.id);
@@ -177,6 +178,16 @@ function eliminarComanda(idComanda) {
   const datos = hComandas.getDataRange().getDisplayValues();
   for (let i = 1; i < datos.length; i++) {
     if (datos[i][0].toString() === idComanda.toString()) { hComandas.deleteRow(i + 1); return true; }
+  }
+}
+
+function cambiarMeseroComanda(idComanda, nuevoEncargado) {
+  const datos = hComandas.getDataRange().getDisplayValues();
+  for (let i = 1; i < datos.length; i++) {
+    if (datos[i][0].toString() === idComanda.toString()) {
+      hComandas.getRange(i + 1, 4).setValue(nuevoEncargado);
+      return true;
+    }
   }
 }
 
