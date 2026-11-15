@@ -235,6 +235,22 @@
     </div>
   </div>
 
+  <!-- MODAL CAMBIAR MESERO DE UNA MESA -->
+  <div id="modal-cambiar-mesero" class="alerta-overlay">
+    <div class="alerta-caja text-start" style="border: 1.5px solid var(--gold-main);">
+      <h5 class="fw-bold text-primary-theme mb-1">🔄 Cambiar Mesero</h5>
+      <small class="text-muted d-block mb-3" id="cm-info-actual"></small>
+
+      <label class="small text-muted fw-bold mb-1">Selecciona quién recibe la mesa:</label>
+      <select id="cm-select-mesero" class="form-select form-select-lg mb-4 border-gold"></select>
+
+      <div class="d-flex gap-2">
+        <button class="btn btn-secondary w-50 fw-bold py-2" onclick="document.getElementById('modal-cambiar-mesero').style.display='none'">Cancelar</button>
+        <button class="btn btn-success w-50 fw-bold py-2" onclick="confirmarCambioMesero()">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL EDITAR TURNO (EXCLUSIVO SUPERADMIN) -->
   <div id="modal-editar-turno" class="alerta-overlay">
     <div class="alerta-caja text-start" style="border: 1.5px solid var(--gold-main);">
@@ -829,6 +845,7 @@
     <div class="header-vista px-3">
       <h4 id="titulo-comanda" class="m-0 fw-bold text-primary-theme" style="display:none;">Mesa</h4>
       <div class="d-flex gap-2 w-100 justify-content-end">
+        <button id="btn-cambiar-mesero" class="btn btn-sm btn-outline-warning fw-bold" style="display:none;" onclick="abrirModalCambiarMesero()">🔄 Cambiar Mesero</button>
         <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="mostrarPreCuenta()">🧾 Cuenta</button>
       </div>
     </div>
