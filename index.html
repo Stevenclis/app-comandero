@@ -1851,6 +1851,43 @@ function actualizarTextoBotonAbrir() {
     cambiarVista('detalle', 'Mesa: ' + referencia); renderizarListaInstantanea();
   }
 
+  function abrirModalCambiarMesero() {
+    if (!esRolAdminOCajero() || !idActual) return;
+    let mesa = cacheMesas.find(m => String(m.id) === String(idActual));
+    if (!mesa) return;
+
+    document.getElementById('cm-info-actual').innerText = `${mesa.referencia} • Atiende actualmente: ${mesa.encargado}`;
+
+    let sel = document.getElementById('cm-select-mesero');
+    let opciones = '<option value="" disabled selected>Elige el nuevo mesero...</option>';
+    let ordenados = [...listaUsuarios].sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+    ordenados.forEach(u => {
+      if (u.nombre.toLowerCase().trim() !== mesa.encargado.toLowerCase().trim()) {
+        opciones += `<option value="${escaparTexto(u.nombre)}">${u.nombre} (${u.rol})</option>`;
+      }
+    });
+
+    sel.innerHTML = opciones;
+    document.getElementById('modal-cambiar-mesero').style.display = 'flex';
+  }
+
+  function confirmarCambioMesero() {
+    if (!esRolAdminOCajero() || !idActual) return;
+    let nuevoEncargado = document.getElementById('cm-select-mesero').value;
+    if (!nuevoEncargado) return mostrarAlerta("Falta Seleccionar", "Elige quién va a recibir la mesa.");
+
+    let mesa = cacheMesas.find(m => String(m.id) === String(idActual));
+    if (!mesa) return;
+
+    mesa.encargado = nuevoEncargado;
+    document.getElementById('modal-cambiar-mesero').style.display = 'none';
+    guardarEstadoEnMemoriaLocal();
+
+    mostrarAlerta("Mesa Transferida", `Ahora la atiende ${nuevoEncargado}.`, "success");
+    llamarBackend('cambiarMesero', { id: idActual, nuevoEncargado: nuevoEncargado });
+  }
+
   function restarProdInstantaneo(nombre, precio) { ejecutarMovimientoLocal(nombre, precio, -1); }
 
   function ejecutarMovimientoLocal(nombre, precio, cantidad) {
