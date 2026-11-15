@@ -251,6 +251,20 @@
     </div>
   </div>
 
+ <!-- MODAL EDITAR DESCRIPTIVO DE MESA -->
+  <div id="modal-editar-nota" class="alerta-overlay">
+    <div class="alerta-caja text-start" style="border: 1.5px solid var(--gold-main);">
+      <h5 class="fw-bold text-primary-theme mb-1">📝 Descriptivo de la Mesa</h5>
+      <small class="text-muted d-block mb-3" id="en-info-mesa"></small>
+
+      <input type="text" id="en-input-nota" class="form-control form-control-lg mb-3 border-gold" placeholder="Ej. Señora camisa blanca, 5 muchachos...">
+
+      <div class="d-flex gap-2">
+        <button class="btn btn-secondary w-50 fw-bold py-2" onclick="document.getElementById('modal-editar-nota').style.display='none'">Cancelar</button>
+        <button class="btn btn-success w-50 fw-bold py-2" onclick="guardarNotaMesa()">Guardar</button>
+      </div>
+    </div>
+  </div>
   <!-- MODAL EDITAR TURNO (EXCLUSIVO SUPERADMIN) -->
   <div id="modal-editar-turno" class="alerta-overlay">
     <div class="alerta-caja text-start" style="border: 1.5px solid var(--gold-main);">
@@ -419,6 +433,10 @@
 <div id="vista-nueva" class="vista container" style="padding-bottom: 90px;">
     <div class="alert mb-3 fw-bold bg-input-theme text-primary-theme">Atiende: <span id="label-encargado-nueva"></span></div>
     <label class="text-muted fw-bold mb-2">Selecciona la(s) mesa(s):</label>
+  <div class="mb-3">
+      <label class="text-muted fw-bold mb-1">Descriptivo / Cliente (Opcional):</label>
+      <input type="text" id="in-nota-nueva" class="form-control form-control-lg border-gold" placeholder="📝 Ej. Señora camisa blanca, 5 muchachos...">
+    </div>
     <div class="row g-2 mb-4" id="grid-mesas"></div>
     <div class="panel-flotante">
       <button id="btn-abrir-y-pedir" class="btn btn-success btn-lg w-100 py-2 fw-bold shadow-sm" onclick="crearComanda()">Abrir y Pedir</button>
@@ -846,9 +864,11 @@
       <h4 id="titulo-comanda" class="m-0 fw-bold text-primary-theme" style="display:none;">Mesa</h4>
       <div class="d-flex gap-2 w-100 justify-content-end">
         <button id="btn-cambiar-mesero" class="btn btn-sm btn-outline-warning fw-bold" style="display:none;" onclick="abrirModalCambiarMesero()">🔄 Cambiar Mesero</button>
+        <button class="btn btn-sm btn-outline-info fw-bold" onclick="abrirModalEditarNota()">📝 Nota</button>
         <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="mostrarPreCuenta()">🧾 Cuenta</button>
       </div>
     </div>
+    <div id="banner-nota-mesa" class="mx-3 mb-2 px-3 py-1 rounded bg-input-theme border-gold small fw-bold text-primary-theme" style="display:none; cursor:pointer;" onclick="abrirModalEditarNota()"></div>
     <div class="lista-comanda shadow-sm mb-2 mx-3">
       <div id="tabla-detalles" class="text-muted text-center mt-2">Cargando...</div>
     </div>
