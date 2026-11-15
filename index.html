@@ -1123,6 +1123,11 @@
 const KEY_COLA_OFFLINE = 'altamira_cola_envios_v1';
   const KEY_CACHE_LOCAL = 'altamira_cache_datos_v1';
   const ACCIONES_ENCOLABLES = [
+    'abrirComanda', 'eliminarComanda', 'cambiarMesero', 'actualizarNotaComanda', 'registrarMovimiento', 'pagarComanda',
+    'registrarMovCaja', 'guardarUsuario', 'eliminarUsuario',
+    'guardarProducto', 'eliminarProducto', 'guardarMenuDia', 'quitarMenuDia',
+    'registrarConsumoEmpleado', 'eliminarConsumoItem', 'liquidarConsumoEmpleado'
+  ];
     'abrirComanda', 'eliminarComanda', 'cambiarMesero', 'registrarMovimiento', 'pagarComanda',
     'registrarMovCaja', 'guardarUsuario', 'eliminarUsuario',
     'guardarProducto', 'eliminarProducto', 'guardarMenuDia', 'quitarMenuDia',
@@ -1792,8 +1797,9 @@ function actualizarTextoBotonAbrir() {
     document.getElementById('vista-' + id).classList.add('activa');
     document.getElementById('panel-cobro').style.display = (id === 'detalle') ? 'flex' : 'none';
     if(tituloNav !== "") document.getElementById('nav-titulo').innerText = tituloNav;
-    if(id === 'nueva') {
+   if(id === 'nueva') {
       document.getElementById('label-encargado-nueva').innerText = usuarioActual.nombre;
+      document.getElementById('in-nota-nueva').value = "";
       mesasSeleccionadasUI = [];
       actualizarSugerenciasMesas();
     }
@@ -1803,9 +1809,11 @@ function actualizarTextoBotonAbrir() {
   function crearComanda() {
     let enc = usuarioActual.nombre; 
     if(mesasSeleccionadasUI.length === 0) return mostrarAlerta("Datos Faltantes", "Toca al menos una mesa de la lista.");
-    let ref = mesasSeleccionadasUI.join(' + '); let nuevoId = String(new Date().getTime());
-    cacheMesas.unshift({ id: nuevoId, fecha: 'Hoy', encargado: enc, referencia: ref }); cacheDetalles[nuevoId] = [];
-    actualizarSugerenciasMesas(); abrirMesa(nuevoId, ref); llamarBackend('abrirComanda', {id: nuevoId, encargado: enc, referencia: ref});
+    let ref = mesasSeleccionadasUI.join(' + ');
+    let nota = document.getElementById('in-nota-nueva').value.trim();
+    let nuevoId = String(new Date().getTime());
+    cacheMesas.unshift({ id: nuevoId, fecha: 'Hoy', encargado: enc, referencia: ref, nota: nota }); cacheDetalles[nuevoId] = [];
+    actualizarSugerenciasMesas(); abrirMesa(nuevoId, ref); llamarBackend('abrirComanda', {id: nuevoId, encargado: enc, referencia: ref, nota: nota});
   }
 
   function iniciarVentaRapida() {
@@ -1849,12 +1857,15 @@ function actualizarTextoBotonAbrir() {
          cacheDetalles[c.id].forEach(item => totalMesa += item.subtotal);
       }
 
+      let notaHtml = c.nota ? `<small class="text-primary-theme fw-bold mb-1 text-truncate d-block">📝 ${c.nota}</small>` : '';
+
       html += `<div class="col-6 mb-3">
                  <div class="mesa-card h-100" onclick="abrirMesa('${c.id}', '${escaparTexto(c.referencia)}')">
                    <div class="mesa-header ${bgHeader} text-center py-2 fw-bold">
                      🍽️ ${c.referencia}
                    </div>
                    <div class="mesa-body text-center p-3">
+                     ${notaHtml}
                      <small class="text-muted mb-1 text-truncate">👤 ${c.encargado}</small>
                      <h5 class="text-success fw-bold m-0">$${totalMesa.toLocaleString('es-CO')}</h5>
                    </div>
@@ -1869,6 +1880,40 @@ function actualizarTextoBotonAbrir() {
     categoriaActual = null;
     document.getElementById('buscador-prod').value = ""; renderizarVistaProductos();
     cambiarVista('detalle', 'Mesa: ' + referencia); renderizarListaInstantanea();
+    actualizarBannerNotaMesa();
+  }
+
+  function actualizarBannerNotaMesa() {
+    let banner = document.getElementById('banner-nota-mesa');
+    if (!banner || !idActual) return;
+    let mesa = cacheMesas.find(m => String(m.id) === String(idActual));
+    if (mesa && mesa.nota) {
+      banner.innerText = "📝 " + mesa.nota + "  (toca para editar)";
+      banner.style.display = "block";
+    } else {
+      banner.style.display = "none";
+    }
+  }
+
+  function abrirModalEditarNota() {
+    if (!idActual) return;
+    let mesa = cacheMesas.find(m => String(m.id) === String(idActual));
+    if (!mesa) return;
+    document.getElementById('en-info-mesa').innerText = `${mesa.referencia} • Atiende: ${mesa.encargado}`;
+    document.getElementById('en-input-nota').value = mesa.nota || "";
+    document.getElementById('modal-editar-nota').style.display = "flex";
+  }
+
+  function guardarNotaMesa() {
+    if (!idActual) return;
+    let mesa = cacheMesas.find(m => String(m.id) === String(idActual));
+    if (!mesa) return;
+    let nuevaNota = document.getElementById('en-input-nota').value.trim();
+    mesa.nota = nuevaNota;
+    document.getElementById('modal-editar-nota').style.display = "none";
+    actualizarBannerNotaMesa();
+    guardarEstadoEnMemoriaLocal();
+    llamarBackend('actualizarNotaComanda', { id: idActual, nota: nuevaNota });
   }
 
   function abrirModalCambiarMesero() {
