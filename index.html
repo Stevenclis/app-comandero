@@ -1103,7 +1103,7 @@
   const KEY_COLA_OFFLINE = 'altamira_cola_envios_v1';
   const KEY_CACHE_LOCAL = 'altamira_cache_datos_v1';
   const ACCIONES_ENCOLABLES = [
-    'abrirComanda', 'eliminarComanda', 'registrarMovimiento', 'pagarComanda',
+    'abrir'abrirComanda', 'eliminarComanda', 'cambiarMesero', 'registrarMovimiento', 'pagarComanda',Comanda', 'eliminarComanda', 'registrarMovimiento', 'pagarComanda',
     'registrarMovCaja', 'guardarUsuario', 'eliminarUsuario',
     'guardarProducto', 'eliminarProducto', 'guardarMenuDia', 'quitarMenuDia',
     'registrarConsumoEmpleado', 'eliminarConsumoItem', 'liquidarConsumoEmpleado'
@@ -1399,6 +1399,7 @@
     document.getElementById('btn-menu-mi-consumo').style.display = !superAdmin ? 'block' : 'none';
     document.getElementById('btn-menu-cierre').style.display = adminCajero ? 'block' : 'none';
     document.getElementById('btn-abrir-pago').style.display = adminCajero ? 'block' : 'none';
+    document.getElementById('btn-cambiar-mesero').style.display = adminCajero ? 'inline-block' : 'none';
     document.getElementById('seccion-superadmin').style.display = superAdmin ? 'block' : 'none';
   }
 
