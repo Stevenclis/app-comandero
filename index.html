@@ -1156,7 +1156,7 @@
 const KEY_COLA_OFFLINE = 'altamira_cola_envios_v1';
   const KEY_CACHE_LOCAL = 'altamira_cache_datos_v1';
   const ACCIONES_ENCOLABLES = [
-    'abrirComanda', 'eliminarComanda', 'cambiarMesero', 'actualizarNotaComanda', 'registrarMovimiento', 'pagarComanda',
+    'abrirComanda', 'eliminarComanda', 'cambiarMesero', 'actualizarNotaComanda', 'marcarEntregaDetalle', 'registrarMovimiento', 'pagarComanda',
     'registrarMovCaja', 'guardarUsuario', 'eliminarUsuario',
     'guardarProducto', 'eliminarProducto', 'guardarMenuDia', 'quitarMenuDia',
     'registrarConsumoEmpleado', 'eliminarConsumoItem', 'liquidarConsumoEmpleado'
@@ -1835,13 +1835,71 @@ function actualizarTextoBotonAbrir() {
   }
 
   function crearComanda() {
-    let enc = usuarioActual.nombre; 
-    if(mesasSeleccionadasUI.length === 0) return mostrarAlerta("Datos Faltantes", "Toca al menos una mesa de la lista.");
-    let ref = mesasSeleccionadasUI.join(' + ');
+    let enc = usuarioActual.nombre;
     let nota = document.getElementById('in-nota-nueva').value.trim();
+    if (mesasSeleccionadasUI.length === 0 && nota === "") {
+      return mostrarAlerta("Datos Faltantes", "Selecciona al menos una mesa o escribe un descriptivo.");
+    }
+    let ref = mesasSeleccionadasUI.length > 0 ? mesasSeleccionadasUI.join(' + ') : nota;
+    let notaFinal = mesasSeleccionadasUI.length > 0 ? nota : "";
     let nuevoId = String(new Date().getTime());
-    cacheMesas.unshift({ id: nuevoId, fecha: 'Hoy', encargado: enc, referencia: ref, nota: nota }); cacheDetalles[nuevoId] = [];
-    actualizarSugerenciasMesas(); abrirMesa(nuevoId, ref); llamarBackend('abrirComanda', {id: nuevoId, encargado: enc, referencia: ref, nota: nota});
+    cacheMesas.unshift({ id: nuevoId, fecha: 'Hoy', encargado: enc, referencia: ref, nota: notaFinal });
+    cacheDetalles[nuevoId] = [];
+    actualizarSugerenciasMesas();
+    abrirMesa(nuevoId, ref);
+    llamarBackend('abrirComanda', { id: nuevoId, encargado: enc, referencia: ref, nota: notaFinal });
+  }
+
+  function abrirConsultorCarta() {
+    document.getElementById('cc-buscador').value = "";
+    renderizarConsultorCarta();
+    document.getElementById('modal-consultor-carta').style.display = 'flex';
+  }
+
+  function renderizarConsultorCarta() {
+    let texto = document.getElementById('cc-buscador').value.toLowerCase().trim();
+    let boxMd = document.getElementById('cc-menu-dia');
+    let listaEl = document.getElementById('cc-lista');
+
+    if (menuDiaData && menuDiaData.estado === 'Activo') {
+      boxMd.innerHTML = `<div class="p-2 rounded bg-input-theme border-gold">
+                           <div class="d-flex justify-content-between align-items-center">
+                             <strong class="text-primary-theme">🍲 Menú del Día</strong>
+                             <span class="badge bg-success">$${Number(menuDiaData.precio).toLocaleString('es-CO')}</span>
+                           </div>
+                           <small class="text-muted d-block mt-1" style="white-space: pre-line; font-size: 12px;">${menuDiaData.descripcion || ''}</small>
+                         </div>`;
+    } else if (menuDiaData && menuDiaData.estado === 'Agotado') {
+      boxMd.innerHTML = `<div class="p-2 rounded bg-input-theme border border-danger small text-danger fw-bold">🍲 Menú del Día: AGOTADO</div>`;
+    } else {
+      boxMd.innerHTML = "";
+    }
+
+    let filtrados = catalogo.filter(p =>
+      p.nombre.toLowerCase().includes(texto) ||
+      (p.categoria && p.categoria.toLowerCase().includes(texto))
+    );
+
+    if (filtrados.length === 0) {
+      listaEl.innerHTML = '<p class="text-center text-muted my-3">No se encontraron productos.</p>';
+      return;
+    }
+
+    let html = '';
+    filtrados.forEach(p => {
+      let agotado = (p.estado || 'Activo').toLowerCase() === 'agotado';
+      let precioHtml = agotado
+        ? `<span class="badge bg-danger">Agotado</span>`
+        : `<span class="fw-bold text-success">$${Number(p.precio).toLocaleString('es-CO')}</span>`;
+      html += `<div class="item-fila d-flex justify-content-between align-items-center">
+                 <div class="pe-2">
+                   <small class="text-muted d-block" style="font-size: 10px;">${p.categoria || 'General'}</small>
+                   <span class="fw-bold text-main-theme">${p.nombre}</span>
+                 </div>
+                 <div class="flex-shrink-0">${precioHtml}</div>
+               </div>`;
+    });
+    listaEl.innerHTML = html;
   }
 
   function iniciarVentaRapida() {
@@ -1869,38 +1927,218 @@ function actualizarTextoBotonAbrir() {
     });
   }
 
+  let mesasExpandidasUI = {};
+
+  function formatearHoraCorta(ms) {
+    if (!ms || ms <= 0) return "";
+    return new Date(Number(ms)).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function toggleDetalleTarjetaMesa(event, id) {
+    event.stopPropagation();
+    mesasExpandidasUI[id] = !mesasExpandidasUI[id];
+    renderizarComandasEnPantalla();
+  }
+
+  function toggleEntregaDesdeTarjeta(event, idMesa, nombreProd) {
+    event.stopPropagation();
+    let items = cacheDetalles[idMesa] || [];
+    let item = items.find(i => i.nombre === nombreProd);
+    if (!item) return;
+
+    let actualEntregados = Number(item.entregados || 0);
+    let nuevoEntregados = (actualEntregados >= item.cant) ? 0 : item.cant;
+    let delta = nuevoEntregados - actualEntregados;
+
+    item.entregados = nuevoEntregados;
+    guardarEstadoEnMemoriaLocal();
+    renderizarComandasEnPantalla();
+    llamarBackend('marcarEntregaDetalle', { id: idMesa, nombre: nombreProd, deltaEntregado: delta });
+  }
+
   function renderizarComandasEnPantalla() {
     let listaFiltrada = cacheMesas;
     if(!esRolAdminOCajero()) { listaFiltrada = cacheMesas.filter(m => m.encargado === usuarioActual.nombre); }
     actualizarAnuncioMenuDia();
-    if(listaFiltrada.length === 0) { document.getElementById('contenedor-comandas').innerHTML = '<p class="text-center mt-4 text-muted">No hay mesas activas.</p>'; return; }
-    
-    let html = '';
+
+    let q = (document.getElementById('buscador-mesas-global')?.value || '').toLowerCase().trim();
+    let ahora = Date.now();
+    const LIMITE_DEMORA_MS = 30 * 60 * 1000;
+
+    let tarjetas = [];
+    let hayBusquedaProducto = false;
+
     listaFiltrada.forEach(c => {
-      let esAgrupada = c.referencia.includes('+');
-      let bgHeader = esAgrupada ? 'bg-warning' : 'bg-primary';
-      
-      let totalMesa = 0;
-      if(cacheDetalles[c.id]) {
-         cacheDetalles[c.id].forEach(item => totalMesa += item.subtotal);
+      let items = cacheDetalles[c.id] || [];
+      let coincideTextoMesa = (q === "") ||
+        c.referencia.toLowerCase().includes(q) ||
+        (c.nota && c.nota.toLowerCase().includes(q)) ||
+        (c.encargado && c.encargado.toLowerCase().includes(q));
+
+      let itemsCoincidentes = (q === "") ? [] : items.filter(i => i.nombre.toLowerCase().includes(q));
+
+      if (!coincideTextoMesa && itemsCoincidentes.length === 0) return;
+
+      let horaOrdenProducto = 0;
+      if (itemsCoincidentes.length > 0) {
+        hayBusquedaProducto = true;
+        itemsCoincidentes.forEach(ic => {
+          let ts = (ic.horaMs && ic.horaMs > 0) ? ic.horaMs : Number(c.id);
+          if (ts > 0 && (horaOrdenProducto === 0 || ts < horaOrdenProducto)) {
+            horaOrdenProducto = ts;
+          }
+        });
       }
+
+      let maxMinutosDemora = 0;
+      items.forEach(i => {
+        let pendientes = i.cant - Number(i.entregados || 0);
+        if (pendientes > 0) {
+          let ts = (i.horaMs && i.horaMs > 0) ? i.horaMs : Number(c.id);
+          if (ts > 0 && (ahora - ts) >= LIMITE_DEMORA_MS) {
+            let mins = Math.floor((ahora - ts) / 60000);
+            if (mins > maxMinutosDemora) maxMinutosDemora = mins;
+          }
+        }
+      });
+
+      tarjetas.push({
+        mesa: c,
+        items: items,
+        itemsCoincidentes: itemsCoincidentes,
+        horaOrdenProducto: horaOrdenProducto,
+        maxMinutosDemora: maxMinutosDemora
+      });
+    });
+
+    if (hayBusquedaProducto) {
+      tarjetas.sort((a, b) => {
+        if (a.itemsCoincidentes.length > 0 && b.itemsCoincidentes.length === 0) return -1;
+        if (a.itemsCoincidentes.length === 0 && b.itemsCoincidentes.length > 0) return 1;
+        return (a.horaOrdenProducto || 9999999999999) - (b.horaOrdenProducto || 9999999999999);
+      });
+    }
+
+    if(tarjetas.length === 0) {
+      document.getElementById('contenedor-comandas').innerHTML = `<p class="text-center mt-4 text-muted">${q ? 'No hay mesas ni pedidos que coincidan con tu búsqueda.' : 'No hay mesas activas.'}</p>`;
+      return;
+    }
+
+    let html = '';
+    let turnoProducto = 0;
+
+    tarjetas.forEach(t => {
+      let c = t.mesa;
+      let items = t.items;
+      let tieneDemora = t.maxMinutosDemora >= 30;
+      let esAgrupada = c.referencia.includes('+');
+
+      let claseCard = tieneDemora ? 'mesa-card h-100 alerta-demora' : 'mesa-card h-100';
+      let bgHeader = tieneDemora ? 'bg-danger-alerta' : (esAgrupada ? 'bg-warning' : 'bg-primary');
+
+      let totalMesa = 0;
+      let totalUnidades = 0;
+      let pendientesUnidades = 0;
+      items.forEach(item => {
+        totalMesa += item.subtotal;
+        totalUnidades += item.cant;
+        pendientesUnidades += Math.max(0, item.cant - Number(item.entregados || 0));
+      });
+
+      let badgeTurnoHtml = '';
+      if (t.itemsCoincidentes.length > 0) {
+        turnoProducto++;
+        let horaTxt = formatearHoraCorta(t.horaOrdenProducto);
+        let resumenMatch = t.itemsCoincidentes.map(ic => {
+          let ent = Number(ic.entregados || 0) >= ic.cant;
+          return `${ent ? '✅' : '⏳'} ${ic.cant}x ${ic.nombre}`;
+        }).join('<br>');
+        badgeTurnoHtml = `<div class="p-1 px-2 mb-1 rounded bg-warning text-dark fw-bold" style="font-size: 11px;">
+                            🥇 #${turnoProducto} en pedir ${horaTxt ? '(' + horaTxt + ')' : ''}
+                            <div class="fw-normal mt-1 text-start" style="font-size: 11px; line-height: 1.25;">${resumenMatch}</div>
+                          </div>`;
+      }
+
+      let badgeDemoraHtml = tieneDemora
+        ? `<div class="badge bg-danger mb-1 py-1 px-2" style="font-size: 11px;">🚨 ¡${t.maxMinutosDemora} min sin entregar!</div>`
+        : '';
 
       let notaHtml = c.nota ? `<small class="text-primary-theme fw-bold mb-1 text-truncate d-block">📝 ${c.nota}</small>` : '';
 
+      let expandida = !!mesasExpandidasUI[c.id];
+      let listaRapidaHtml = '';
+      if (expandida && items.length > 0) {
+        listaRapidaHtml = `<div class="mt-2 pt-2 border-top text-start" style="border-color: var(--border-color) !important; font-size: 11px;">`;
+        items.forEach(i => {
+          let ent = Number(i.entregados || 0) >= i.cant;
+          let nomEsc = escaparTexto(i.nombre);
+          let horaItem = formatearHoraCorta(i.horaMs);
+          listaRapidaHtml += `<div class="d-flex justify-content-between align-items-center py-1 border-bottom" style="border-color: var(--border-color) !important;" onclick="toggleEntregaDesdeTarjeta(event, '${c.id}', '${nomEsc}')">
+                                <span class="${ent ? 'text-muted text-decoration-line-through' : 'text-main-theme fw-bold'} pe-1">${ent ? '✅' : '⏳'} ${i.cant}x ${i.nombre}</span>
+                                <small class="text-muted flex-shrink-0">${horaItem}</small>
+                              </div>`;
+        });
+        listaRapidaHtml += `</div>`;
+      }
+
+      let btnVerPedidoHtml = '';
+      if (items.length > 0) {
+        let etiquetaPend = pendientesUnidades > 0 ? ` • ${pendientesUnidades} pend.` : ' • Todo ✅';
+        btnVerPedidoHtml = `<button class="btn btn-sm btn-outline-secondary w-100 mt-2 py-1 fw-bold" style="font-size: 11px;" onclick="toggleDetalleTarjetaMesa(event, '${c.id}')">
+                              ${expandida ? 'Ocultar ▲' : `📋 Ver pedido (${totalUnidades}${etiquetaPend})`}
+                            </button>`;
+      }
+
       html += `<div class="col-6 mb-3">
-                 <div class="mesa-card h-100" onclick="abrirMesa('${c.id}', '${escaparTexto(c.referencia)}')">
+                 <div class="${claseCard}" onclick="abrirMesa('${c.id}', '${escaparTexto(c.referencia)}')">
                    <div class="mesa-header ${bgHeader} text-center py-2 fw-bold">
                      🍽️ ${c.referencia}
                    </div>
-                   <div class="mesa-body text-center p-3">
+                   <div class="mesa-body text-center p-2">
+                     ${badgeDemoraHtml}
+                     ${badgeTurnoHtml}
                      ${notaHtml}
                      <small class="text-muted mb-1 text-truncate">👤 ${c.encargado}</small>
                      <h5 class="text-success fw-bold m-0">$${totalMesa.toLocaleString('es-CO')}</h5>
+                     ${btnVerPedidoHtml}
+                     ${listaRapidaHtml}
                    </div>
                  </div>
                </div>`;
     });
     document.getElementById('contenedor-comandas').innerHTML = html;
+  }
+
+  function alternarCartaMesa(forzarMostrar) {
+    let bloquePedido = document.getElementById('bloque-pedido-mesa');
+    let bloqueCarta = document.getElementById('bloque-carta-mesa');
+    let btnToggle = document.getElementById('btn-toggle-carta-mesa');
+    if (!bloquePedido || !bloqueCarta) return;
+
+    let mostrarCarta = (typeof forzarMostrar === 'boolean')
+      ? forzarMostrar
+      : (bloqueCarta.style.display === 'none');
+
+    if (mostrarCarta) {
+      categoriaActual = null;
+      document.getElementById('buscador-prod').value = "";
+      renderizarVistaProductos();
+      bloquePedido.style.display = 'none';
+      bloqueCarta.style.display = 'block';
+      if (btnToggle) {
+        let cantItems = (cacheDetalles[idActual] || []).reduce((acc, x) => acc + x.cant, 0);
+        btnToggle.innerText = `📋 Ver Pedido (${cantItems})`;
+        btnToggle.className = "btn btn-warning btn-lg px-3 fw-bold shadow-sm";
+      }
+    } else {
+      bloqueCarta.style.display = 'none';
+      bloquePedido.style.display = 'block';
+      renderizarListaInstantanea();
+      if (btnToggle) {
+        btnToggle.innerText = "➕ Agregar";
+        btnToggle.className = "btn btn-primary btn-lg px-3 fw-bold shadow-sm";
+      }
+    }
   }
 
   function abrirMesa(id, referencia) {
@@ -1909,6 +2147,8 @@ function actualizarTextoBotonAbrir() {
     document.getElementById('buscador-prod').value = ""; renderizarVistaProductos();
     cambiarVista('detalle', 'Mesa: ' + referencia); renderizarListaInstantanea();
     actualizarBannerNotaMesa();
+    let estaVacia = !(cacheDetalles[idActual] && cacheDetalles[idActual].length > 0);
+    alternarCartaMesa(estaVacia);
   }
 
   function actualizarBannerNotaMesa() {
@@ -1991,6 +2231,67 @@ function actualizarTextoBotonAbrir() {
     renderizarListaInstantanea(); llamarBackend('registrarMovimiento', {id: idActual, nombre: nombre, precio: precio, cantidad: cantidad});
   }
 
+  function toggleEntregaEnMesa(nombreProd) {
+    if (!idActual) return;
+    let items = cacheDetalles[idActual] || [];
+    let item = items.find(i => i.nombre === nombreProd);
+    if (!item) return;
+
+    let actualEntregados = Number(item.entregados || 0);
+    let nuevoEntregados = (actualEntregados >= item.cant) ? 0 : item.cant;
+    let delta = nuevoEntregados - actualEntregados;
+
+    item.entregados = nuevoEntregados;
+    guardarEstadoEnMemoriaLocal();
+    renderizarListaInstantanea();
+    llamarBackend('marcarEntregaDetalle', { id: idActual, nombre: nombreProd, deltaEntregado: delta });
+  }
+
+  function ejecutarMovimientoLocal(nombre, precio, cantidad) {
+    let subtotal = precio * cantidad;
+    let existente = cacheDetalles[idActual].find(i => i.nombre === nombre);
+    let marcaTiempo = (cantidad > 0) ? Date.now() : 0;
+
+    if (existente) {
+      existente.cant += cantidad;
+      existente.subtotal += subtotal;
+      if (cantidad > 0 && (!existente.horaMs || existente.horaMs <= 0)) {
+        existente.horaMs = marcaTiempo;
+      }
+      if (existente.cant > 0) {
+        existente.entregados = Math.min(existente.cant, Number(existente.entregados || 0));
+      }
+    } else if (cantidad > 0) {
+      cacheDetalles[idActual].push({
+        nombre: nombre,
+        cant: cantidad,
+        precio: precio,
+        subtotal: subtotal,
+        horaMs: marcaTiempo,
+        entregados: 0
+      });
+    }
+
+    cacheDetalles[idActual] = cacheDetalles[idActual].filter(i => i.cant > 0);
+    guardarEstadoEnMemoriaLocal();
+    renderizarListaInstantanea();
+
+    let bloqueCarta = document.getElementById('bloque-carta-mesa');
+    let btnToggle = document.getElementById('btn-toggle-carta-mesa');
+    if (bloqueCarta && bloqueCarta.style.display !== 'none' && btnToggle) {
+      let cantItems = (cacheDetalles[idActual] || []).reduce((acc, x) => acc + x.cant, 0);
+      btnToggle.innerText = `📋 Ver Pedido (${cantItems})`;
+    }
+
+    llamarBackend('registrarMovimiento', {
+      id: idActual,
+      nombre: nombre,
+      precio: precio,
+      cantidad: cantidad,
+      horaMs: marcaTiempo
+    });
+  }
+
   function renderizarListaInstantanea() {
     totalActual = 0; let items = cacheDetalles[idActual] || [];
     if(items.length === 0) { document.getElementById('tabla-detalles').innerHTML = '<p class="text-center m-0 py-2">La mesa está vacía.</p>'; document.getElementById('lbl-total').innerText = '0'; return; }
@@ -1999,9 +2300,22 @@ function actualizarTextoBotonAbrir() {
       totalActual += i.subtotal;
       let nomEsc = escaparTexto(i.nombre);
       let nomVisual = formatearNombreVisual(i.nombre);
+      let ent = Number(i.entregados || 0) >= i.cant;
+      let horaTxt = formatearHoraCorta(i.horaMs);
+      let btnEstado = ent
+        ? `<button class="btn btn-sm btn-success fw-bold px-2 py-1" style="font-size: 11px;" onclick="toggleEntregaEnMesa('${nomEsc}')">✅ Entregado</button>`
+        : `<button class="btn btn-sm btn-outline-warning fw-bold px-2 py-1" style="font-size: 11px;" onclick="toggleEntregaEnMesa('${nomEsc}')">⏳ Pendiente</button>`;
+
       html += `<div class="item-fila d-flex justify-content-between align-items-center">
-                 <div class="text-start pe-2"><span class="fw-bold text-main-theme">${i.cant}x ${nomVisual}</span><br><small class="text-muted">$${i.subtotal.toLocaleString('es-CO')}</small></div>
-                 <button class="btn btn-outline-danger btn-sm px-3 shadow-sm flex-shrink-0" onclick="restarProdInstantaneo('${nomEsc}', ${i.precio})">❌</button></div>`;
+                 <div class="text-start pe-2">
+                   <span class="fw-bold ${ent ? 'text-muted text-decoration-line-through' : 'text-main-theme'}">${i.cant}x ${nomVisual}</span><br>
+                   <small class="text-muted">$${i.subtotal.toLocaleString('es-CO')} ${horaTxt ? '• Pedido ' + horaTxt : ''}</small>
+                 </div>
+                 <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                   ${btnEstado}
+                   <button class="btn btn-outline-danger btn-sm px-2 shadow-sm" onclick="restarProdInstantaneo('${nomEsc}', ${i.precio})">❌</button>
+                 </div>
+               </div>`;
     });
     document.getElementById('tabla-detalles').innerHTML = html; document.getElementById('lbl-total').innerText = totalActual.toLocaleString('es-CO');
   }
