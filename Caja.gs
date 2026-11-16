@@ -49,17 +49,69 @@ function _guardarFacturasPendientes(lista) {
   PropertiesService.getScriptProperties().setProperty('FACTURAS_PENDIENTES', JSON.stringify(lista || []));
 }
 
+function _mismaFechaCaja(valDisplay, valRaw, fechaObjetivo) {
+  let obj = String(fechaObjetivo || '').trim();
+  let anio = 0, mes = 0, dia = 0;
+
+  if (obj.indexOf('-') !== -1) {
+    let p = obj.split(' ')[0].split('-');
+    if (p.length === 3) { anio = Number(p[0]); mes = Number(p[1]); dia = Number(p[2]); }
+  } else if (obj.indexOf('/') !== -1) {
+    let p = obj.split(' ')[0].split('/');
+    if (p.length === 3) { dia = Number(p[0]); mes = Number(p[1]); anio = Number(p[2]); }
+  }
+
+  if (valRaw instanceof Date && !isNaN(valRaw.getTime()) && anio > 0) {
+    return valRaw.getFullYear() === anio && (valRaw.getMonth() + 1) === mes && valRaw.getDate() === dia;
+  }
+
+  let s = String(valDisplay || '').trim();
+  if (!s) return false;
+  if (s === obj) return true;
+
+  let soloFecha = s.split(' ')[0].trim();
+  if (soloFecha === obj) return true;
+
+  if (anio > 0) {
+    if (soloFecha.indexOf('-') !== -1) {
+      let p = soloFecha.split('-');
+      if (p.length === 3) {
+        if (Number(p[0]) === anio && Number(p[1]) === mes && Number(p[2]) === dia) return true;
+        if (Number(p[2]) === anio && Number(p[1]) === mes && Number(p[0]) === dia) return true;
+      }
+    }
+    if (soloFecha.indexOf('/') !== -1) {
+      let p = soloFecha.split('/');
+      if (p.length === 3) {
+        if (Number(p[2]) === anio && Number(p[1]) === mes && Number(p[0]) === dia) return true;
+        if (Number(p[2]) === anio && Number(p[0]) === mes && Number(p[1]) === dia && Number(p[1]) > 12) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function _mismaCajaNombre(valCelda, nombreCaja) {
+  let c1 = String(valCelda || '').toLowerCase().trim();
+  let c2 = String(nombreCaja || '').toLowerCase().trim();
+  if (!c1 || !c2) return false;
+  if (c1 === c2) return true;
+  if (c2 === 'caja piscina' && c1 === 'piscina') return true;
+  if (c2 === 'caja restaurante' && c1 === 'restaurante') return true;
+  return false;
+}
+
 // Calcula el estado vivo de una caja específica en una fecha
-function _calcularEstadoUnaCaja(fecha, nombreCaja, datosC, datosM) {
+function _calcularEstadoUnaCaja(fecha, nombreCaja, datosC, datosM, rawC, rawM) {
   let ventasEfectivo = 0;
   let ventasTransferencia = 0;
 
-  datosC.forEach(f => {
+  datosC.forEach((f, idx) => {
+    let r = rawC ? rawC[idx] : null;
     if (
-      f[2] === 'Pagada' &&
-      f[1] === fecha &&
-      f[8] &&
-      f[8].toString().toLowerCase().trim() === nombreCaja.toLowerCase().trim()
+      String(f[2] || '').trim().toLowerCase() === 'pagada' &&
+      _mismaFechaCaja(f[1], r ? r[1] : null, fecha) &&
+      _mismaCajaNombre(f[8], nombreCaja)
     ) {
       ventasEfectivo += Number(f[6].toString().replace(/\D/g, '')) || 0;
       ventasTransferencia += Number(f[7].toString().replace(/\D/g, '')) || 0;
@@ -76,8 +128,9 @@ function _calcularEstadoUnaCaja(fecha, nombreCaja, datosC, datosM) {
   let listaGastosVentas = [];
   let listaConsignaciones = [];
 
-  datosM.forEach(f => {
-    if (f[0] === fecha && f[1] && f[1].toString().toLowerCase().trim() === nombreCaja.toLowerCase().trim()) {
+  datosM.forEach((f, idx) => {
+    let r = rawM ? rawM[idx] : null;
+    if (_mismaFechaCaja(f[0], r ? r[0] : null, fecha) && _mismaCajaNombre(f[1], nombreCaja)) {
       const tipo = (f[2] || '').toString().trim();
       const concepto = (f[3] || '').toString().trim();
       const monto = Number((f[4] || '0').toString().replace(/\D/g, '')) || 0;
@@ -371,22 +424,79 @@ function eliminarFacturaPendiente(id) {
   return { ok: true, pendientes: lista };
 }
 
-// Cierre detallado por caja (incluyendo desglose de Base, Ventas, Caja Fuerte, Banco y Pendientes)
+// Cierre detallado por caja (incluyendo desglose de Base, Ventas, Productos Unificados, Caja Fuerte, Banco y Pendientes)
 function hacerCierreDetallado(fecha, caja) {
   const sheetC = _getSheetComandas();
   const sheetM = _getSheetMovimientos();
   const datosC = sheetC.getDataRange().getDisplayValues(); datosC.shift();
+  const rawC = sheetC.getDataRange().getValues(); rawC.shift();
   const datosM = sheetM.getDataRange().getDisplayValues(); datosM.shift();
+  const rawM = sheetM.getDataRange().getValues(); rawM.shift();
 
-  const info = _calcularEstadoUnaCaja(fecha, caja, datosC, datosM);
+  const info = _calcularEstadoUnaCaja(fecha, caja, datosC, datosM, rawC, rawM);
+
+  // Recolectar IDs de las comandas pagadas hoy en esta caja para unificar productos vendidos
+  let idsComandasCaja = {};
+  datosC.forEach((f, idx) => {
+    let r = rawC[idx];
+    if (
+      String(f[2] || '').trim().toLowerCase() === 'pagada' &&
+      _mismaFechaCaja(f[1], r ? r[1] : null, fecha) &&
+      _mismaCajaNombre(f[8], caja)
+    ) {
+      let idCom = String(f[0] || '').trim();
+      if (idCom) idsComandasCaja[idCom] = true;
+    }
+  });
+
+  let productosVendidos = [];
+  const sheetD = (typeof hDetalles !== 'undefined' && hDetalles) ? hDetalles : libro.getSheetByName('Detalles');
+  if (sheetD && Object.keys(idsComandasCaja).length > 0) {
+    const datosD = sheetD.getDataRange().getValues();
+    datosD.shift();
+    let porComandaYProd = {};
+    for (let i = 0; i < datosD.length; i++) {
+      let idCom = String(datosD[i][0] || '').trim();
+      if (idsComandasCaja[idCom]) {
+        let nom = String(datosD[i][1] || '').trim();
+        let cant = Number(datosD[i][2]) || 0;
+        let precio = Number(datosD[i][3]) || 0;
+        let sub = Number(datosD[i][4]) || 0;
+        if (!nom) continue;
+        let key = idCom + '||' + nom;
+        if (!porComandaYProd[key]) {
+          porComandaYProd[key] = { nombre: nom, cant: 0, precio: precio, subtotal: 0 };
+        }
+        porComandaYProd[key].cant += cant;
+        porComandaYProd[key].subtotal += sub;
+        if (precio > 0) porComandaYProd[key].precio = precio;
+      }
+    }
+
+    let unificado = {};
+    for (let key in porComandaYProd) {
+      let item = porComandaYProd[key];
+      if (item.cant > 0) {
+        if (!unificado[item.nombre]) {
+          unificado[item.nombre] = { nombre: item.nombre, cant: 0, precio: item.precio, subtotal: 0 };
+        }
+        unificado[item.nombre].cant += item.cant;
+        unificado[item.nombre].subtotal += item.subtotal;
+        if (item.precio > 0) unificado[item.nombre].precio = item.precio;
+      }
+    }
+
+    productosVendidos = Object.values(unificado).sort((a, b) => b.subtotal - a.subtotal);
+  }
 
   let gastosCFHoy = 0;
   let listaGastosCF = [];
   let gastosBancoHoy = 0;
   let listaGastosBanco = [];
 
-  datosM.forEach(f => {
-    if (f[0] === fecha && (f[2] || '').toString().trim() === 'Gasto') {
+  datosM.forEach((f, idx) => {
+    let r = rawM[idx];
+    if (_mismaFechaCaja(f[0], r ? r[0] : null, fecha) && (f[2] || '').toString().trim() === 'Gasto') {
       const m = Number((f[4] || '0').toString().replace(/\D/g, '')) || 0;
       const lugar = (f[1] || '').toString().trim();
       if (lugar === 'Caja Fuerte') {
@@ -420,6 +530,7 @@ function hacerCierreDetallado(fecha, caja) {
     listaGastosBase: info.listaGastosBase,
     listaGastosVentas: info.listaGastosVentas,
     listaConsignaciones: info.listaConsignaciones,
+    productosVendidos: productosVendidos,
 
     gastosCajaFuerteHoy: gastosCFHoy,
     listaGastosCajaFuerte: listaGastosCF,
