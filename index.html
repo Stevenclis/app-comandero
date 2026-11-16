@@ -2146,12 +2146,19 @@ let mesasExpandidasUI = {};
         listaRapidaHtml = `<div class="mt-2 pt-2 border-top text-start" style="border-color: var(--border-color) !important; font-size: 11px;">`;
         items.forEach(i => {
           let llevaSeg = requiereSeguimientoEntrega(i.nombre);
-          let ent = llevaSeg && (Number(i.entregados || 0) >= i.cant);
+          let entregadosNum = Math.min(i.cant, Number(i.entregados || 0));
+          let pendientesNum = Math.max(0, i.cant - entregadosNum);
+          let ent = llevaSeg && (pendientesNum === 0);
           let nomEsc = escaparTexto(i.nombre);
           let horaItem = formatearHoraCorta(i.horaMs);
           if (llevaSeg) {
+            let textoItem = ent
+              ? `✅ ${i.cant}x ${i.nombre}`
+              : (entregadosNum > 0
+                  ? `⏳ ${pendientesNum} pend. de ${i.cant}x ${i.nombre} (${entregadosNum} ✅)`
+                  : `⏳ ${i.cant}x ${i.nombre}`);
             listaRapidaHtml += `<div class="d-flex justify-content-between align-items-center py-1 border-bottom" style="border-color: var(--border-color) !important;" onclick="toggleEntregaDesdeTarjeta(event, '${c.id}', '${nomEsc}')">
-                                  <span class="${ent ? 'text-muted text-decoration-line-through' : 'text-main-theme fw-bold'} pe-1">${ent ? '✅' : '⏳'} ${i.cant}x ${i.nombre}</span>
+                                  <span class="${ent ? 'text-muted text-decoration-line-through' : 'text-main-theme fw-bold'} pe-1">${textoItem}</span>
                                   <small class="text-muted flex-shrink-0">${horaItem}</small>
                                 </div>`;
           } else {
@@ -2333,15 +2340,32 @@ let mesasExpandidasUI = {};
     llamarBackend('marcarEntregaDetalle', { id: idActual, nombre: nombreProd, deltaEntregado: delta });
   }
 
+  function toggleEntregaEnMesa(nombreProd) {
+    if (!idActual) return;
+    let items = cacheDetalles[idActual] || [];
+    let item = items.find(i => i.nombre === nombreProd);
+    if (!item) return;
+
+    let actualEntregados = Number(item.entregados || 0);
+    let nuevoEntregados = (actualEntregados >= item.cant) ? 0 : item.cant;
+    let delta = nuevoEntregados - actualEntregados;
+
+    item.entregados = nuevoEntregados;
+    guardarEstadoEnMemoriaLocal();
+    renderizarListaInstantanea();
+    llamarBackend('marcarEntregaDetalle', { id: idActual, nombre: nombreProd, deltaEntregado: delta });
+  }
+
   function ejecutarMovimientoLocal(nombre, precio, cantidad) {
     let subtotal = precio * cantidad;
     let existente = cacheDetalles[idActual].find(i => i.nombre === nombre);
     let marcaTiempo = (cantidad > 0) ? Date.now() : 0;
 
     if (existente) {
+      let estabanTodosEntregados = (Number(existente.entregados || 0) >= existente.cant);
       existente.cant += cantidad;
       existente.subtotal += subtotal;
-      if (cantidad > 0 && (!existente.horaMs || existente.horaMs <= 0)) {
+      if (cantidad > 0 && (estabanTodosEntregados || !existente.horaMs || existente.horaMs <= 0)) {
         existente.horaMs = marcaTiempo;
       }
       if (existente.cant > 0) {
@@ -2378,7 +2402,7 @@ let mesasExpandidasUI = {};
     });
   }
 
-function renderizarListaInstantanea() {
+  function renderizarListaInstantanea() {
     totalActual = 0; let items = cacheDetalles[idActual] || [];
     if(items.length === 0) { document.getElementById('tabla-detalles').innerHTML = '<p class="text-center m-0 py-2">La mesa está vacía.</p>'; document.getElementById('lbl-total').innerText = '0'; return; }
     let html = '';
@@ -2387,18 +2411,27 @@ function renderizarListaInstantanea() {
       let nomEsc = escaparTexto(i.nombre);
       let nomVisual = formatearNombreVisual(i.nombre);
       let llevaSeg = requiereSeguimientoEntrega(i.nombre);
-      let ent = llevaSeg && (Number(i.entregados || 0) >= i.cant);
+      let entregadosNum = Math.min(i.cant, Number(i.entregados || 0));
+      let pendientesNum = Math.max(0, i.cant - entregadosNum);
+      let ent = llevaSeg && (pendientesNum === 0);
       let horaTxt = formatearHoraCorta(i.horaMs);
+      let infoEntregaTxt = '';
       let btnEstado = '';
+
       if (llevaSeg) {
-        btnEstado = ent
-          ? `<button class="btn btn-sm btn-success fw-bold px-2 py-1" style="font-size: 11px;" onclick="toggleEntregaEnMesa('${nomEsc}')">✅ Entregado</button>`
-          : `<button class="btn btn-sm btn-outline-warning fw-bold px-2 py-1" style="font-size: 11px;" onclick="toggleEntregaEnMesa('${nomEsc}')">⏳ Pendiente</button>`;
+        if (ent) {
+          btnEstado = `<button class="btn btn-sm btn-success fw-bold px-2 py-1" style="font-size: 11px;" onclick="toggleEntregaEnMesa('${nomEsc}')">✅ Entregado</button>`;
+        } else if (entregadosNum > 0) {
+          infoEntregaTxt = `<span class="badge bg-success ms-1" style="font-size: 10px;">${entregadosNum} entregado(s)</span>`;
+          btnEstado = `<button class="btn btn-sm btn-warning text-dark fw-bold px-2 py-1" style="font-size: 11px;" onclick="toggleEntregaEnMesa('${nomEsc}')">⏳ Entregar ${pendientesNum}</button>`;
+        } else {
+          btnEstado = `<button class="btn btn-sm btn-outline-warning fw-bold px-2 py-1" style="font-size: 11px;" onclick="toggleEntregaEnMesa('${nomEsc}')">⏳ Pendiente</button>`;
+        }
       }
 
       html += `<div class="item-fila d-flex justify-content-between align-items-center">
                  <div class="text-start pe-2">
-                   <span class="fw-bold ${ent ? 'text-muted text-decoration-line-through' : 'text-main-theme'}">${i.cant}x ${nomVisual}</span><br>
+                   <span class="fw-bold ${ent ? 'text-muted text-decoration-line-through' : 'text-main-theme'}">${i.cant}x ${nomVisual}</span>${infoEntregaTxt}<br>
                    <small class="text-muted">$${i.subtotal.toLocaleString('es-CO')} ${horaTxt ? '• Pedido ' + horaTxt : ''}</small>
                  </div>
                  <div class="d-flex align-items-center gap-2 flex-shrink-0">
@@ -2409,7 +2442,6 @@ function renderizarListaInstantanea() {
     });
     document.getElementById('tabla-detalles').innerHTML = html; document.getElementById('lbl-total').innerText = totalActual.toLocaleString('es-CO');
   }
-
   function eliminarMesaVacia() {
     let idEliminar = String(idActual); 
     mesasEliminadasEnSesion.push(idEliminar);
