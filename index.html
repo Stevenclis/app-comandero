@@ -2316,47 +2316,28 @@ let mesasExpandidasUI = {};
 
   function restarProdInstantaneo(nombre, precio) { ejecutarMovimientoLocal(nombre, precio, -1); }
 
+  function toggleEntregaEnMesa(nombreProd) {
+    if (!idActual) return;
+    let items = cacheDetalles[idActual] || [];
+    let item = items.find(i => i.nombre === nombreProd);
+    if (!item) return;
+
+    let actualEntregados = Number(item.entregados || 0);
+    let nuevoEntregados = (actualEntregados >= item.cant) ? 0 : item.cant;
+    let delta = nuevoEntregados - actualEntregados;
+
+    item.entregados = nuevoEntregados;
+    guardarEstadoEnMemoriaLocal();
+    renderizarListaInstantanea();
+    llamarBackend('marcarEntregaDetalle', { id: idActual, nombre: nombreProd, deltaEntregado: delta });
+  }
+
   function ejecutarMovimientoLocal(nombre, precio, cantidad) {
-    let subtotal = precio * cantidad; let existente = cacheDetalles[idActual].find(i => i.nombre === nombre);
-    if(existente) { existente.cant += cantidad; existente.subtotal += subtotal; } 
-    else if (cantidad > 0) { cacheDetalles[idActual].push({nombre: nombre, cant: cantidad, precio: precio, subtotal: subtotal}); }
-    cacheDetalles[idActual] = cacheDetalles[idActual].filter(i => i.cant > 0);
-    renderizarListaInstantanea(); llamarBackend('registrarMovimiento', {id: idActual, nombre: nombre, precio: precio, cantidad: cantidad});
-  }
+    let subtotal = precio * cantidad;
+    let existente = cacheDetalles[idActual].find(i => i.nombre === nombre);
+    let marcaTiempo = (cantidad > 0) ? Date.now() : 0;
 
-  function toggleEntregaEnMesa(nombreProd) {
-    if (!idActual) return;
-    let items = cacheDetalles[idActual] || [];
-    let item = items.find(i => i.nombre === nombreProd);
-    if (!item) return;
-
-    let actualEntregados = Number(item.entregados || 0);
-    let nuevoEntregados = (actualEntregados >= item.cant) ? 0 : item.cant;
-    let delta = nuevoEntregados - actualEntregados;
-
-    item.entregados = nuevoEntregados;
-    guardarEstadoEnMemoriaLocal();
-    renderizarListaInstantanea();
-    llamarBackend('marcarEntregaDetalle', { id: idActual, nombre: nombreProd, deltaEntregado: delta });
-  }
-
-  function toggleEntregaEnMesa(nombreProd) {
-    if (!idActual) return;
-    let items = cacheDetalles[idActual] || [];
-    let item = items.find(i => i.nombre === nombreProd);
-    if (!item) return;
-
-    let actualEntregados = Number(item.entregados || 0);
-    let nuevoEntregados = (actualEntregados >= item.cant) ? 0 : item.cant;
-    let delta = nuevoEntregados - actualEntregados;
-
-    item.entregados = nuevoEntregados;
-    guardarEstadoEnMemoriaLocal();
-    renderizarListaInstantanea();
-    llamarBackend('marcarEntregaDetalle', { id: idActual, nombre: nombreProd, deltaEntregado: delta });
-  }
-
-  if (existente) {
+    if (existente) {
       let estabanTodosEntregados = (Number(existente.entregados || 0) >= existente.cant);
       existente.cant += cantidad;
       existente.subtotal += subtotal;
