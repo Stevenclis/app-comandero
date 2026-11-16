@@ -2334,16 +2334,27 @@ let mesasExpandidasUI = {};
     llamarBackend('marcarEntregaDetalle', { id: idActual, nombre: nombreProd, deltaEntregado: delta });
   }
 
+  let historialExpandido = {};
+  function toggleHistorialItem(nombreProd) {
+    if (!idActual) return;
+    let clave = idActual + '_' + nombreProd;
+    historialExpandido[clave] = !historialExpandido[clave];
+    renderizarListaInstantanea();
+  }
+
   function ejecutarMovimientoLocal(nombre, precio, cantidad) {
     let subtotal = precio * cantidad;
     let existente = cacheDetalles[idActual].find(i => i.nombre === nombre);
     let marcaTiempo = (cantidad > 0) ? Date.now() : 0;
 
     if (existente) {
+      if (!existente.historial) existente.historial = [];
       let estabanTodosEntregados = (Number(existente.entregados || 0) >= existente.cant);
       existente.cant += cantidad;
       existente.subtotal += subtotal;
+      
       if (cantidad > 0 && marcaTiempo > 0) {
+        existente.historial.push({ cant: cantidad, horaMs: marcaTiempo });
         existente.horaUltimaMs = marcaTiempo;
         if (estabanTodosEntregados || !existente.horaMs || existente.horaMs <= 0) {
           existente.horaMs = marcaTiempo;
@@ -2360,7 +2371,8 @@ let mesasExpandidasUI = {};
         subtotal: subtotal,
         horaMs: marcaTiempo,
         horaUltimaMs: marcaTiempo,
-        entregados: 0
+        entregados: 0,
+        historial: [{ cant: cantidad, horaMs: marcaTiempo }]
       });
     }
 
@@ -2399,6 +2411,23 @@ let mesasExpandidasUI = {};
       let horaTxt = formatearHoraCorta(i.horaUltimaMs || i.horaMs);
       let infoEntregaTxt = '';
       let btnEstado = '';
+      
+      let claveHist = idActual + '_' + i.nombre;
+      let esExpandido = !!historialExpandido[claveHist];
+      let desgloseHtml = '';
+
+      // Si el producto se pidió en 2 o más momentos diferentes, mostramos el botón
+      if (i.historial && i.historial.length > 1) {
+        let textoBtn = esExpandido ? '▲ Ocultar' : '▼ Desglose';
+        horaTxt += ` <span class="badge bg-secondary ms-1" style="cursor:pointer;" onclick="toggleHistorialItem('${nomEsc}')">${textoBtn}</span>`;
+        if (esExpandido) {
+          desgloseHtml = `<div class="mt-1 ps-2 border-start border-secondary small text-muted" style="font-size: 11px;">`;
+          i.historial.forEach(h => {
+            desgloseHtml += `<div>+${h.cant} uds a las ${formatearHoraCorta(h.horaMs)}</div>`;
+          });
+          desgloseHtml += `</div>`;
+        }
+      }
 
       if (llevaSeg) {
         if (ent) {
@@ -2415,6 +2444,7 @@ let mesasExpandidasUI = {};
                  <div class="text-start pe-2">
                    <span class="fw-bold ${ent ? 'text-muted text-decoration-line-through' : 'text-main-theme'}">${i.cant}x ${nomVisual}</span>${infoEntregaTxt}<br>
                    <small class="text-muted">$${i.subtotal.toLocaleString('es-CO')} ${horaTxt ? '• Pedido ' + horaTxt : ''}</small>
+                   ${desgloseHtml}
                  </div>
                  <div class="d-flex align-items-center gap-2 flex-shrink-0">
                    ${btnEstado}
