@@ -81,6 +81,8 @@
     .mesa-header.bg-primary { background: linear-gradient(90deg, #1e3a8a, #1e40af); color: white !important; border-bottom: none;}
     .mesa-header.bg-warning { background: linear-gradient(90deg, #b45309, #d97706); color: white !important; border-bottom: none;}
     .mesa-body { background: transparent; border: none; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    .mesa-card.alerta-demora { border: 2.5px solid #ef4444 !important; box-shadow: 0 0 15px rgba(239, 68, 68, 0.55) !important; }
+    .mesa-header.bg-danger-alerta { background: linear-gradient(90deg, #991b1b, #dc2626) !important; color: #ffffff !important; border-bottom: none; }
 
     .alerta-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; display:none; justify-content:center; align-items:center; padding: 15px; }
     .alerta-caja { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color); padding: 22px; border-radius: 16px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.8); animation: popIn 0.2s ease; max-height: 92vh; overflow-y: auto; }
@@ -251,7 +253,19 @@
     </div>
   </div>
 
- <!-- MODAL EDITAR DESCRIPTIVO DE MESA -->
+ <!-- MODAL CONSULTOR RÁPIDO DE PRECIOS -->
+  <div id="modal-consultor-carta" class="alerta-overlay">
+    <div class="alerta-caja text-start" style="max-width: 430px; border: 1.5px solid var(--gold-main);">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5 class="fw-bold text-primary-theme m-0">💲 Consultar Precios</h5>
+        <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="document.getElementById('modal-consultor-carta').style.display='none'">✖</button>
+      </div>
+      <input type="text" id="cc-buscador" class="form-control mb-2 border-gold" placeholder="🔍 Escribe el nombre del plato o bebida..." oninput="renderizarConsultorCarta()">
+      <div id="cc-menu-dia" class="mb-2"></div>
+      <div id="cc-lista" class="p-2 rounded bg-input-theme" style="max-height: 50vh; overflow-y: auto; border: 1px solid var(--border-color);"></div>
+    </div>
+  </div>
+  <!-- MODAL EDITAR DESCRIPTIVO DE MESA -->
   <div id="modal-editar-nota" class="alerta-overlay">
     <div class="alerta-caja text-start" style="border: 1.5px solid var(--gold-main);">
       <h5 class="fw-bold text-primary-theme mb-1">📝 Descriptivo de la Mesa</h5>
@@ -415,6 +429,10 @@
   </div>
 
 <div id="vista-lista" class="vista container">
+  <div class="d-flex gap-2 mb-3">
+      <input type="text" id="buscador-mesas-global" class="form-control border-gold" placeholder="🔍 Buscar mesa, cliente o plato..." oninput="renderizarComandasEnPantalla()">
+      <button class="btn btn-outline-warning fw-bold flex-shrink-0" onclick="abrirConsultorCarta()">💲 Carta</button>
+    </div>
     <div id="anuncio-menu-dia" class="card mb-3 shadow-sm" style="display:none; border: 1.5px solid var(--gold-main); cursor: pointer;" onclick="toggleAnuncioMenuDia()">
       <div class="p-2 px-3 d-flex justify-content-between align-items-center">
         <div class="d-flex align-items-center gap-2">
@@ -859,27 +877,42 @@
     <div id="contenedor-cerradas"></div>
   </div>
 
-  <div id="vista-detalle" class="vista">
-    <div class="header-vista px-3">
-      <h4 id="titulo-comanda" class="m-0 fw-bold text-primary-theme" style="display:none;">Mesa</h4>
-      <div class="d-flex gap-2 w-100 justify-content-end">
-        <button id="btn-cambiar-mesero" class="btn btn-sm btn-outline-warning fw-bold" style="display:none;" onclick="abrirModalCambiarMesero()">🔄 Cambiar Mesero</button>
-        <button class="btn btn-sm btn-outline-info fw-bold" onclick="abrirModalEditarNota()">📝 Nota</button>
-        <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="mostrarPreCuenta()">🧾 Cuenta</button>
+<div id="vista-detalle" class="vista">
+    <!-- BLOQUE 1: PEDIDO ACTUAL DE LA MESA (LIMPIO Y AMPLIO) -->
+    <div id="bloque-pedido-mesa">
+      <div class="header-vista px-3">
+        <h4 id="titulo-comanda" class="m-0 fw-bold text-primary-theme" style="display:none;">Mesa</h4>
+        <div class="d-flex gap-2 w-100 justify-content-end">
+          <button class="btn btn-sm btn-outline-info fw-bold" onclick="abrirModalEditarNota()">📝 Nota</button>
+          <button id="btn-cambiar-mesero" class="btn btn-sm btn-outline-warning fw-bold" style="display:none;" onclick="abrirModalCambiarMesero()">🔄 Mesero</button>
+          <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="mostrarPreCuenta()">🧾 Cuenta</button>
+        </div>
+      </div>
+      <div id="banner-nota-mesa" class="mx-3 mb-2 px-3 py-1 rounded bg-input-theme border-gold small fw-bold text-primary-theme" style="display:none; cursor:pointer;" onclick="abrirModalEditarNota()"></div>
+      <div class="lista-comanda shadow-sm mb-2 mx-3" style="max-height: 62vh;">
+        <div id="tabla-detalles" class="text-muted text-center mt-2">Cargando...</div>
       </div>
     </div>
-    <div id="banner-nota-mesa" class="mx-3 mb-2 px-3 py-1 rounded bg-input-theme border-gold small fw-bold text-primary-theme" style="display:none; cursor:pointer;" onclick="abrirModalEditarNota()"></div>
-    <div class="lista-comanda shadow-sm mb-2 mx-3">
-      <div id="tabla-detalles" class="text-muted text-center mt-2">Cargando...</div>
-    </div>
-    <div class="px-3">
+
+    <!-- BLOQUE 2: MENÚ / CARTA PARA AGREGAR PRODUCTOS -->
+    <div id="bloque-carta-mesa" class="px-3" style="display:none;">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <button class="btn btn-sm btn-outline-warning fw-bold" onclick="alternarCartaMesa(false)">⬅️ Volver al Pedido</button>
+        <small class="text-muted fw-bold">Toca para agregar</small>
+      </div>
       <input type="text" id="buscador-prod" class="form-control mb-2" placeholder="🔍 Buscar producto en toda la carta..." onkeyup="filtrarProductos()">
       <div class="row g-2" id="contenedor-productos"></div>
     </div>
+
+    <!-- BARRA INFERIOR FIJA -->
     <div class="panel-flotante" id="panel-cobro" style="display: none;">
-      <h4 class="m-0 text-success fw-bold">Total: $<span id="lbl-total">0</span></h4>
+      <div>
+        <small class="text-muted d-block" style="font-size: 11px; line-height: 1;">Total Mesa</small>
+        <h4 class="m-0 text-success fw-bold">$<span id="lbl-total">0</span></h4>
+      </div>
       <div class="d-flex gap-2">
-        <button id="btn-abrir-pago" class="btn btn-success btn-lg px-4 shadow-sm" onclick="abrirPago()">Cobrar 💵</button>
+        <button id="btn-toggle-carta-mesa" class="btn btn-primary btn-lg px-3 fw-bold shadow-sm" onclick="alternarCartaMesa()">➕ Agregar</button>
+        <button id="btn-abrir-pago" class="btn btn-success btn-lg px-3 fw-bold shadow-sm" onclick="abrirPago()">Cobrar 💵</button>
       </div>
     </div>
   </div>
