@@ -14,10 +14,12 @@ function doPost(e) {
 
     if(action === 'obtenerCargaInicial') output = obtenerCargaInicial();
     if(action === 'sincronizarFondo') output = sincronizarFondo();
-    if(action === 'abrirComanda') { abrirComandaDesdeApp(data.id, data.encargado, data.referencia); output = {ok: true}; }
+    if(action === 'abrirComanda') { abrirComandaDesdeApp(data.id, data.encargado, data.referencia, data.nota); output = {ok: true}; }
     if(action === 'eliminarComanda') { eliminarComanda(data.id); output = {ok: true}; }
+    if(action === 'actualizarNotaComanda') { actualizarNotaComanda(data.id, data.nota); output = {ok: true}; }
     if(action === 'cambiarMesero') { cambiarMeseroComanda(data.id, data.nuevoEncargado); output = {ok: true}; }
-    if(action === 'registrarMovimiento') { registrarMovimientoFondo(data.id, data.nombre, data.precio, data.cantidad); output = {ok: true}; }
+    if(action === 'registrarMovimiento') { registrarMovimientoFondo(data.id, data.nombre, data.precio, data.cantidad, data.horaMs); output = {ok: true}; }
+    if(action === 'marcarEntregaDetalle') { marcarEntregaDetalle(data.id, data.nombre, data.deltaEntregado); output = {ok: true}; }
     if(action === 'pagarComanda') { pagarComanda(data.id, data.total, data.efe, data.trans, data.caja); output = {ok: true}; }
     if(action === 'obtenerDetalleTicket') output = obtenerDetalleTicket(data.id);
     if(action === 'registrarMovCaja') { registrarMovCaja(data.fecha, data.caja, data.tipo, data.concepto, data.monto); output = {ok: true}; }
@@ -136,10 +138,10 @@ function sincronizarFondo() {
   for(let i = 0; i < datosC.length; i++) {
     let id = datosC[i][0], fechaComanda = datosC[i][1];
     if(datosC[i][2] === 'Abierta') {
-      mesasAbiertas.push({ id: id, fecha: fechaComanda, encargado: datosC[i][3], referencia: datosC[i][4] });
+      mesasAbiertas.push({ id: id, fecha: fechaComanda, encargado: datosC[i][3], referencia: datosC[i][4], nota: (datosC[i][9] || "").toString().trim() });
       tempDetalles[id] = {};
     } else if (datosC[i][2] === 'Pagada' && fechaComanda === fechaHoy) {
-      mesasCerradas.push({ id: id, fecha: fechaComanda, encargado: datosC[i][3], referencia: datosC[i][4], total: datosC[i][5], caja: datosC[i][8] || "N/A" });
+      mesasCerradas.push({ id: id, fecha: fechaComanda, encargado: datosC[i][3], referencia: datosC[i][4], total: datosC[i][5], caja: datosC[i][8] || "N/A", nota: (datosC[i][9] || "").toString().trim() });
     }
   }
 
@@ -147,9 +149,19 @@ function sincronizarFondo() {
     let idCom = datosD[i][0];
     if(tempDetalles[idCom] !== undefined) {
       let nombre = datosD[i][1], cant = Number(datosD[i][2]), precio = Number(datosD[i][3]), sub = Number(datosD[i][4]);
-      if(!tempDetalles[idCom][nombre]) tempDetalles[idCom][nombre] = { nombre: nombre, cant: 0, precio: precio, subtotal: 0 };
+      let horaMs = Number(datosD[i][5] || 0);
+      let entregadoDelta = Number(datosD[i][6] || 0);
+      if(!tempDetalles[idCom][nombre]) {
+        tempDetalles[idCom][nombre] = { nombre: nombre, cant: 0, precio: precio, subtotal: 0, horaMs: 0, entregados: 0 };
+      }
       tempDetalles[idCom][nombre].cant += cant;
       tempDetalles[idCom][nombre].subtotal += sub;
+      tempDetalles[idCom][nombre].entregados += entregadoDelta;
+      if (cant > 0 && horaMs > 0) {
+        if (tempDetalles[idCom][nombre].horaMs === 0 || horaMs < tempDetalles[idCom][nombre].horaMs) {
+          tempDetalles[idCom][nombre].horaMs = horaMs;
+        }
+      }
     }
   }
 
@@ -157,7 +169,11 @@ function sincronizarFondo() {
   for(let id in tempDetalles) {
     detallesFinal[id] = [];
     for(let nom in tempDetalles[id]) {
-      if(tempDetalles[id][nom].cant > 0) detallesFinal[id].push(tempDetalles[id][nom]);
+      let item = tempDetalles[id][nom];
+      if(item.cant > 0) {
+        item.entregados = Math.max(0, Math.min(item.cant, item.entregados));
+        detallesFinal[id].push(item);
+      }
     }
   }
   return { 
@@ -169,9 +185,19 @@ function sincronizarFondo() {
   };
 }
 
-function abrirComandaDesdeApp(id, encargado, referencia) {
+function abrirComandaDesdeApp(id, encargado, referencia, nota) {
   const fecha = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
-  hComandas.appendRow([id, fecha, 'Abierta', encargado, referencia, 0, 0, 0, '']);
+  hComandas.appendRow([id, fecha, 'Abierta', encargado, referencia, 0, 0, 0, '', nota || '']);
+}
+
+function actualizarNotaComanda(idComanda, nota) {
+  const datos = hComandas.getDataRange().getDisplayValues();
+  for (let i = 1; i < datos.length; i++) {
+    if (datos[i][0].toString() === idComanda.toString()) {
+      hComandas.getRange(i + 1, 10).setValue(nota || '');
+      return true;
+    }
+  }
 }
 
 function eliminarComanda(idComanda) {
@@ -191,9 +217,14 @@ function cambiarMeseroComanda(idComanda, nuevoEncargado) {
   }
 }
 
-function registrarMovimientoFondo(idComanda, nombre, precio, cantidad) {
-  const subtotal = precio * cantidad; 
-  hDetalles.appendRow([idComanda, nombre, cantidad, precio, subtotal]);
+function registrarMovimientoFondo(idComanda, nombre, precio, cantidad, horaMs) {
+  const subtotal = precio * cantidad;
+  const marcaTiempo = (cantidad > 0) ? (Number(horaMs) || Date.now()) : 0;
+  hDetalles.appendRow([idComanda, nombre, cantidad, precio, subtotal, marcaTiempo, 0]);
+}
+
+function marcarEntregaDetalle(idComanda, nombre, deltaEntregado) {
+  hDetalles.appendRow([idComanda, nombre, 0, 0, 0, 0, Number(deltaEntregado) || 0]);
 }
 
 function pagarComanda(idComanda, total, efectivo, transferencia, caja) {
