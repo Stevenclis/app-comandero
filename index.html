@@ -2742,20 +2742,7 @@ let ultimoCierreData = null;
       document.getElementById('lista-pendientes-cierre').innerHTML = res.facturasPendientes?.length > 0 ? res.facturasPendientes.map(fp => `<div>• ${fp.concepto}: <b>$${Number(fp.monto).toLocaleString('es-CO')}</b></div>`).join('') : '<div>Ninguna.</div>';
     });
   }
-  function obtenerVentasCerradasDelCierre(fechaStr, rawFechaStr, cajaNombre) {
-    if (typeof cacheCerradas === 'undefined' || !Array.isArray(cacheCerradas)) return [];
-    return cacheCerradas.filter(c => {
-      let f = String(c.fecha || '');
-      let coincideFecha = (f === fechaStr || f === rawFechaStr || f.includes(fechaStr) || f.includes(rawFechaStr));
-      if (!coincideFecha) return false;
-      if (c.caja && cajaNombre) {
-        return String(c.caja).toLowerCase() === String(cajaNombre).toLowerCase();
-      }
-      return true;
-    });
-  }
-
-  function generarTicketCierre() {
+function generarTicketCierre() {
     if (!ultimoCierreData || !ultimoCierreData.datos) {
       return mostrarAlerta("Aviso", "Primero selecciona la fecha y la caja y presiona 'Calcular Cuadre'.");
     }
@@ -2776,7 +2763,7 @@ let ultimoCierreData = null;
       document.head.appendChild(stylePrint);
     }
 
-    const { fecha, rawFecha, caja, datos: d } = ultimoCierreData;
+    const { fecha, caja, datos: d } = ultimoCierreData;
     const fmt = (n) => '$' + Number(n || 0).toLocaleString('es-CO');
     const horaGen = new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
 
@@ -2855,22 +2842,19 @@ let ultimoCierreData = null;
       });
     }
 
-    // 7. DETALLE DE COMANDAS CERRADAS DEL DÍA (SI ESTÁN EN MEMORIA)
-    const ventasDia = obtenerVentasCerradasDelCierre(fecha, rawFecha, caja);
-    if (ventasDia.length > 0) {
-      html += `<hr style="border-style: dashed; border-color: var(--border-color);">`;
-      html += `<div class="fw-bold mb-1">7. DETALLE DE COMANDAS (${ventasDia.length})</div>`;
-      ventasDia.forEach(v => {
-        let ref = v.referencia || v.mesa || 'Comanda';
-        let metodo = v.metodoPago || v.metodo || '';
-        let tot = v.total || v.monto || 0;
-        html += `<div class="d-flex justify-content-between fw-bold mt-1"><span>• ${ref} ${metodo ? '(' + metodo + ')' : ''}</span><span>${fmt(tot)}</span></div>`;
-        if (Array.isArray(v.items) && v.items.length > 0) {
-          v.items.forEach(it => {
-            html += `<div class="d-flex justify-content-between text-muted ps-2" style="font-size: 12px;"><span>${it.cant || 1}x ${it.nombre}</span><span>${fmt(it.subtotal || (it.precio * (it.cant || 1)))}</span></div>`;
-          });
-        }
+    // 7. PRODUCTOS VENDIDOS EN EL DÍA (UNIFICADO)
+    const prods = Array.isArray(d.productosVendidos) ? d.productosVendidos : [];
+    html += `<hr style="border-style: dashed; border-color: var(--border-color);">`;
+    html += `<div class="fw-bold mb-1">7. PRODUCTOS VENDIDOS (${prods.length})</div>`;
+    if (prods.length > 0) {
+      let totalProds = 0;
+      prods.forEach(p => {
+        totalProds += Number(p.subtotal || 0);
+        html += `<div class="d-flex justify-content-between"><span>${p.cant}x ${p.nombre}</span><span>${fmt(p.subtotal)}</span></div>`;
       });
+      html += `<div class="d-flex justify-content-between fw-bold border-top pt-1 mt-1"><span>TOTAL PRODUCTOS:</span><span>${fmt(totalProds)}</span></div>`;
+    } else {
+      html += `<div class="text-muted">Sin productos registrados en esta caja.</div>`;
     }
 
     document.getElementById('tk-cierre-contenido').innerHTML = html;
@@ -2930,20 +2914,18 @@ let ultimoCierreData = null;
       d.facturasPendientes.forEach(fp => lineas.push({ tipo: 'par', izq: fp.concepto, der: fmt(fp.monto) }));
     }
 
-    const ventasDia = obtenerVentasCerradasDelCierre(fecha, rawFecha, caja);
-    if (ventasDia.length > 0) {
-      lineas.push({ tipo: 'sep' });
-      lineas.push({ tipo: 'seccion', texto: `7. DETALLE DE COMANDAS (${ventasDia.length})` });
-      ventasDia.forEach(v => {
-        let ref = v.referencia || v.mesa || 'Comanda';
-        let metodo = v.metodoPago || v.metodo || '';
-        lineas.push({ tipo: 'parBold', izq: `${ref} ${metodo ? '(' + metodo + ')' : ''}`, der: fmt(v.total || v.monto || 0) });
-        if (Array.isArray(v.items)) {
-          v.items.forEach(it => {
-            lineas.push({ tipo: 'par', izq: `  ${it.cant || 1}x ${it.nombre}`, der: fmt(it.subtotal || (it.precio * (it.cant || 1))) });
-          });
-        }
+    const prods = Array.isArray(d.productosVendidos) ? d.productosVendidos : [];
+    lineas.push({ tipo: 'sep' });
+    lineas.push({ tipo: 'seccion', texto: `7. PRODUCTOS VENDIDOS (${prods.length})` });
+    if (prods.length > 0) {
+      let totalProds = 0;
+      prods.forEach(p => {
+        totalProds += Number(p.subtotal || 0);
+        lineas.push({ tipo: 'par', izq: `${p.cant}x ${p.nombre}`, der: fmt(p.subtotal) });
       });
+      lineas.push({ tipo: 'parBold', izq: 'TOTAL PRODUCTOS:', der: fmt(totalProds) });
+    } else {
+      lineas.push({ tipo: 'texto', texto: 'Sin productos registrados en esta caja.' });
     }
 
     lineas.push({ tipo: 'sep' });
