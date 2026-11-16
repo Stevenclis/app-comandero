@@ -2565,14 +2565,16 @@ let cacheEstadoCajas = null;
       if (!res || res.error) return;
       cacheEstadoCajas = res;
 
-      const rest = res.cajas['Caja Restaurante'] || { efectivoEsperado: 0, baseDisponible: 0, ventasDisponible: 0 };
-      const pisc = res.cajas['Caja Piscina'] || { efectivoEsperado: 0, baseDisponible: 0, ventasDisponible: 0 };
+      const rest = res.cajas['Caja Restaurante'] || { efectivoEsperado: 0, baseDisponible: 0, ventasDisponible: 0, transferencia: 0 };
+      const pisc = res.cajas['Caja Piscina'] || { efectivoEsperado: 0, baseDisponible: 0, ventasDisponible: 0, transferencia: 0 };
 
       if (document.getElementById('saldo-vivo-rest')) {
         document.getElementById('saldo-vivo-rest').innerText = '$' + rest.efectivoEsperado.toLocaleString('es-CO');
-        document.getElementById('detalle-vivo-rest').innerText = `Base: $${rest.baseDisponible.toLocaleString('es-CO')} | Ventas: $${rest.ventasDisponible.toLocaleString('es-CO')}`;
+        document.getElementById('detalle-vivo-rest').innerText = `Base: $${rest.baseDisponible.toLocaleString('es-CO')} | Efec: $${rest.ventasDisponible.toLocaleString('es-CO')}`;
+        document.getElementById('transf-vivo-rest').innerText = `📱 Transf. hoy: $${Number(rest.transferencia || 0).toLocaleString('es-CO')}`;
         document.getElementById('saldo-vivo-pisc').innerText = '$' + pisc.efectivoEsperado.toLocaleString('es-CO');
-        document.getElementById('detalle-vivo-pisc').innerText = `Base: $${pisc.baseDisponible.toLocaleString('es-CO')} | Ventas: $${pisc.ventasDisponible.toLocaleString('es-CO')}`;
+        document.getElementById('detalle-vivo-pisc').innerText = `Base: $${pisc.baseDisponible.toLocaleString('es-CO')} | Efec: $${pisc.ventasDisponible.toLocaleString('es-CO')}`;
+        document.getElementById('transf-vivo-pisc').innerText = `📱 Transf. hoy: $${Number(pisc.transferencia || 0).toLocaleString('es-CO')}`;
         document.getElementById('saldo-vivo-cf').innerText = '$' + Number(res.cajaFuerte || 0).toLocaleString('es-CO');
         document.getElementById('saldo-vivo-banco').innerText = '$' + Number(res.banco || 0).toLocaleString('es-CO');
       }
