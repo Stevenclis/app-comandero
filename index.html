@@ -1970,7 +1970,7 @@ let mesasExpandidasUI = {};
 
   const CATEGORIAS_SIN_SEGUIMIENTO = [
     'licor', 'licores', 'alcohol', 'cerveza', 'cervezas',
-    'bebida', 'bebidas', 'gaseosa', 'gaseosas', 'jugo', 'jugos',
+    'bebida', 'bebidas', 'gaseosa', 'gaseosas',
     'agua', 'coctel', 'cóctel', 'cocteles', 'cócteles', 'shot', 'shots',
     'botella', 'botellas', 'mecato', 'cigarrillo', 'cigarrillos'
   ];
@@ -1980,14 +1980,15 @@ let mesasExpandidasUI = {};
     if (!raw) return false;
     let baseNombre = raw.replace(/\s*\([^)]*\)\s*$/, '').trim().toLowerCase();
 
-    // El Menú del Día y cualquier Michelada siempre llevan seguimiento
+    // El Menú del Día, Micheladas y Jugos siempre llevan seguimiento (incluso si están en categoría Bebidas)
     if (baseNombre.includes('menú del día') || baseNombre.includes('menu del dia')) return true;
     if (baseNombre.includes('michelada')) return true;
+    if (baseNombre.includes('jugo')) return true;
 
     let prod = catalogo.find(p => String(p.nombre || '').trim().toLowerCase() === baseNombre);
     if (prod) {
       let cat = String(prod.categoria || '').trim().toLowerCase();
-      if (cat.includes('michelada')) return true;
+      if (cat.includes('michelada') || cat.includes('jugo')) return true;
       if (CATEGORIAS_SIN_SEGUIMIENTO.some(palabra => cat === palabra || cat.includes(palabra))) {
         return false;
       }
