@@ -1175,6 +1175,17 @@
     } else {
       if(checkbox) checkbox.checked = true; 
     }
+
+    document.querySelectorAll('input').forEach((inp, idx) => {
+      if (inp.hasAttribute('list')) return;
+      inp.setAttribute('autocomplete', 'off');
+      inp.setAttribute('autocorrect', 'off');
+      inp.setAttribute('autocapitalize', 'off');
+      inp.setAttribute('spellcheck', 'false');
+      if (inp.type === 'text' || inp.type === 'search') {
+        inp.setAttribute('name', 'busq_' + idx + '_' + Date.now());
+      }
+    });
   });
 
   // =========================================================================
