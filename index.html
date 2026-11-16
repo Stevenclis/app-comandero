@@ -1001,12 +1001,32 @@
         <div id="lista-gastos-cf-cierre" class="small text-muted ps-2 border-start border-danger"></div>
       </div>
 
-      <div class="p-2 rounded bg-card border mt-2">
+<div class="p-2 rounded bg-card border mt-2">
         <h6 class="fw-bold text-warning mb-1">⏳ Facturas Pendientes (No descontadas aún)</h6>
         <div id="lista-pendientes-cierre" class="small text-muted">Ninguna</div>
       </div>
+      
+      <button class="btn btn-primary btn-lg w-100 mt-4 py-3 shadow-sm fw-bold text-dark" style="background-color: var(--gold-main); border: none;" onclick="generarTicketCierre()">🖨️ Generar Ticket Imprimible</button>
     </div>
 </div>
+
+<!-- NUEVA VISTA PARA EL TICKET DE CIERRE -->
+<div id="vista-ticket-cierre" class="vista container">
+  <div class="ticket mx-auto" id="tk-cierre-imprimible">
+    <h3 class="text-center fw-bold mb-1">CIERRE DE CAJA</h3>
+    <h5 id="tk-cierre-caja" class="text-center text-primary-theme m-0">Caja</h5>
+    <p id="tk-cierre-fecha" class="text-center text-muted m-0 small mb-3"></p>
+    <hr style="border-color: var(--border-color);">
+    <div id="tk-cierre-contenido" class="mb-3" style="font-family: monospace; font-size: 14px;"></div>
+    <hr style="border-color: var(--border-color);">
+    <h6 class="text-end fw-bold m-0 text-muted">EFECTIVO FÍSICO EN CAJA:</h6>
+    <h2 class="text-end fw-bold text-success m-0" id="tk-cierre-total">$0</h2>
+  </div>
+  <div class="d-flex gap-2 mt-4 mx-auto" style="max-width: 420px;">
+    <button class="btn btn-primary btn-lg w-100 py-3 shadow-sm fw-bold" onclick="window.print()">🖨️ Imprimir</button>
+    <button class="btn btn-success btn-lg w-100 py-3 shadow-sm fw-bold" onclick="descargarImagenTicketCierre()">📸 Imagen</button>
+    <button class="btn btn-secondary btn-lg w-100 py-3 shadow-sm fw-bold" onclick="cambiarVista('cierre', 'Cierre de Caja')">Volver</button>
+  </div>
   <!-- ========================================================= -->
   <!-- VISTAS EXCLUSIVAS SUPERADMIN                              -->
   <!-- ========================================================= -->
@@ -2667,6 +2687,8 @@ let cacheEstadoCajas = null;
     });
   }
 
+let ultimoCierreData = null;
+
   function calcularCierre() {
     const rawFecha = document.getElementById('cierre-fecha').value;
     const caja = document.getElementById('cierre-caja').value;
@@ -2680,6 +2702,8 @@ let cacheEstadoCajas = null;
     llamarBackend('hacerCierreDetallado', { fecha: fecha, caja: caja }).then(res => {
       btn.disabled = false; btn.innerText = 'Calcular Cuadre';
       if (!res || res.error) return mostrarAlerta("Error", res?.error || "Fallo cálculo.");
+
+      ultimoCierreData = { fecha: fecha, rawFecha: rawFecha, caja: caja, datos: res };
 
       document.getElementById('resultado-cierre').style.display = 'block';
       document.getElementById('res-base').innerText = Number(res.baseInicial || 0).toLocaleString('es-CO');
@@ -2709,12 +2733,310 @@ let cacheEstadoCajas = null;
       document.getElementById('res-gastos-cf-hoy').innerText = Number(res.gastosCajaFuerteHoy || 0).toLocaleString('es-CO');
       document.getElementById('lista-gastos-cf-cierre').innerHTML = res.listaGastosCajaFuerte?.length > 0 ? res.listaGastosCajaFuerte.map(g => `<div>• ${g.concepto}: -$${Number(g.monto).toLocaleString('es-CO')}</div>`).join('') : 'Sin pagos hoy.';
 
-      document.getElementById('res-saldo-banco-total').innerText = Number(res.saldoBancoActual || 0).toLocaleString('es-CO');
-      document.getElementById('res-gastos-banco-hoy').innerText = Number(res.gastosBancoHoy || 0).toLocaleString('es-CO');
-      document.getElementById('lista-gastos-banco-cierre').innerHTML = res.listaGastosBanco?.length > 0 ? res.listaGastosBanco.map(g => `<div>• ${g.concepto}: -$${Number(g.monto).toLocaleString('es-CO')}</div>`).join('') : 'Sin pagos hoy.';
+      if (document.getElementById('res-saldo-banco-total')) {
+        document.getElementById('res-saldo-banco-total').innerText = Number(res.saldoBancoActual || 0).toLocaleString('es-CO');
+        document.getElementById('res-gastos-banco-hoy').innerText = Number(res.gastosBancoHoy || 0).toLocaleString('es-CO');
+        document.getElementById('lista-gastos-banco-cierre').innerHTML = res.listaGastosBanco?.length > 0 ? res.listaGastosBanco.map(g => `<div>• ${g.concepto}: -$${Number(g.monto).toLocaleString('es-CO')}</div>`).join('') : 'Sin pagos hoy.';
+      }
 
       document.getElementById('lista-pendientes-cierre').innerHTML = res.facturasPendientes?.length > 0 ? res.facturasPendientes.map(fp => `<div>• ${fp.concepto}: <b>$${Number(fp.monto).toLocaleString('es-CO')}</b></div>`).join('') : '<div>Ninguna.</div>';
     });
+  }
+  function obtenerVentasCerradasDelCierre(fechaStr, rawFechaStr, cajaNombre) {
+    if (typeof cacheCerradas === 'undefined' || !Array.isArray(cacheCerradas)) return [];
+    return cacheCerradas.filter(c => {
+      let f = String(c.fecha || '');
+      let coincideFecha = (f === fechaStr || f === rawFechaStr || f.includes(fechaStr) || f.includes(rawFechaStr));
+      if (!coincideFecha) return false;
+      if (c.caja && cajaNombre) {
+        return String(c.caja).toLowerCase() === String(cajaNombre).toLowerCase();
+      }
+      return true;
+    });
+  }
+
+  function generarTicketCierre() {
+    if (!ultimoCierreData || !ultimoCierreData.datos) {
+      return mostrarAlerta("Aviso", "Primero selecciona la fecha y la caja y presiona 'Calcular Cuadre'.");
+    }
+
+    if (!document.getElementById('estilo-impresion-ticket')) {
+      const stylePrint = document.createElement('style');
+      stylePrint.id = 'estilo-impresion-ticket';
+      stylePrint.innerHTML = `@media print {
+        body * { visibility: hidden !important; }
+        #tk-cierre-imprimible, #tk-cierre-imprimible * { visibility: visible !important; }
+        #tk-cierre-imprimible {
+          position: fixed !important; left: 0 !important; top: 0 !important;
+          width: 100% !important; max-width: 100% !important;
+          background: #ffffff !important; color: #000000 !important;
+          box-shadow: none !important; border: none !important; padding: 10px !important;
+        }
+      }`;
+      document.head.appendChild(stylePrint);
+    }
+
+    const { fecha, rawFecha, caja, datos: d } = ultimoCierreData;
+    const fmt = (n) => '$' + Number(n || 0).toLocaleString('es-CO');
+    const horaGen = new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+
+    document.getElementById('tk-cierre-caja').innerText = `CAJA: ${caja.toUpperCase()}`;
+    document.getElementById('tk-cierre-fecha').innerText = `Fecha: ${fecha}  •  Generado: ${horaGen}`;
+
+    const totalVentasTurno = Number(d.ventasEfectivo || 0) + Number(d.transferencia || 0);
+    let html = '';
+
+    // 1. INGRESOS Y VENTAS
+    html += `<div class="fw-bold mb-1">1. INGRESOS Y VENTAS</div>`;
+    html += `<div class="d-flex justify-content-between"><span>Base Inicial:</span><span>${fmt(d.baseInicial)}</span></div>`;
+    html += `<div class="d-flex justify-content-between"><span>Ventas Efectivo:</span><span>${fmt(d.ventasEfectivo)}</span></div>`;
+    html += `<div class="d-flex justify-content-between"><span>Ventas Transferencia:</span><span>${fmt(d.transferencia)}</span></div>`;
+    html += `<div class="d-flex justify-content-between fw-bold border-top pt-1 mt-1"><span>TOTAL VENTAS TURNO:</span><span>${fmt(totalVentasTurno)}</span></div>`;
+    html += `<hr style="border-style: dashed; border-color: var(--border-color);">`;
+
+    // 2. GASTOS DESGLOSADOS
+    html += `<div class="fw-bold mb-1">2. GASTOS DEL TURNO (${fmt(d.gastos)})</div>`;
+    let hayGastos = false;
+    if (d.listaGastosBase?.length > 0) {
+      hayGastos = true;
+      d.listaGastosBase.forEach(g => {
+        html += `<div class="d-flex justify-content-between"><span>• [Base] ${g.concepto}</span><span>-${fmt(g.monto)}</span></div>`;
+      });
+    }
+    if (d.listaGastosVentas?.length > 0) {
+      hayGastos = true;
+      d.listaGastosVentas.forEach(g => {
+        html += `<div class="d-flex justify-content-between"><span>• [Ventas] ${g.concepto}</span><span>-${fmt(g.monto)}</span></div>`;
+      });
+    }
+    if (!hayGastos) html += `<div class="text-muted">Sin gastos registrados.</div>`;
+    html += `<hr style="border-style: dashed; border-color: var(--border-color);">`;
+
+    // 3. CONSIGNACIONES A CAJA FUERTE
+    html += `<div class="fw-bold mb-1">3. CONSIGNADO A CAJA FUERTE (${fmt(d.consignadoCF)})</div>`;
+    if (d.listaConsignaciones?.length > 0) {
+      d.listaConsignaciones.forEach(c => {
+        html += `<div class="d-flex justify-content-between"><span>• ${c.concepto}</span><span>-${fmt(c.monto)}</span></div>`;
+      });
+    } else {
+      html += `<div class="text-muted">Sin consignaciones hoy.</div>`;
+    }
+    html += `<hr style="border-style: dashed; border-color: var(--border-color);">`;
+
+    // 4. DESGLOSE EFECTIVO FÍSICO EN CAJA
+    html += `<div class="fw-bold mb-1">4. CUADRE EFECTIVO EN CAJA</div>`;
+    html += `<div class="d-flex justify-content-between"><span>Base Restante:</span><span>${fmt(d.baseRestante)}</span></div>`;
+    html += `<div class="d-flex justify-content-between"><span>Ventas Efectivo Restante:</span><span>${fmt(d.ventasRestante)}</span></div>`;
+    html += `<hr style="border-style: dashed; border-color: var(--border-color);">`;
+
+    // 5. OTROS FONDOS (CAJA FUERTE Y BANCO)
+    html += `<div class="fw-bold mb-1">5. CAJA FUERTE Y BANCO</div>`;
+    html += `<div class="d-flex justify-content-between"><span>Saldo Caja Fuerte:</span><span>${fmt(d.saldoCajaFuerteActual)}</span></div>`;
+    if (Number(d.gastosCajaFuerteHoy || 0) > 0) {
+      html += `<div class="d-flex justify-content-between text-muted"><span>  Pagos hoy desde CF:</span><span>-${fmt(d.gastosCajaFuerteHoy)}</span></div>`;
+      (d.listaGastosCajaFuerte || []).forEach(g => {
+        html += `<div class="d-flex justify-content-between"><span>  • ${g.concepto}</span><span>-${fmt(g.monto)}</span></div>`;
+      });
+    }
+    html += `<div class="d-flex justify-content-between mt-1"><span>Saldo Banco:</span><span>${fmt(d.saldoBancoActual)}</span></div>`;
+    if (Number(d.gastosBancoHoy || 0) > 0) {
+      html += `<div class="d-flex justify-content-between text-muted"><span>  Pagos hoy desde Banco:</span><span>-${fmt(d.gastosBancoHoy)}</span></div>`;
+      (d.listaGastosBanco || []).forEach(g => {
+        html += `<div class="d-flex justify-content-between"><span>  • ${g.concepto}</span><span>-${fmt(g.monto)}</span></div>`;
+      });
+    }
+
+    // 6. FACTURAS PENDIENTES
+    if (d.facturasPendientes?.length > 0) {
+      html += `<hr style="border-style: dashed; border-color: var(--border-color);">`;
+      html += `<div class="fw-bold mb-1">6. FACTURAS PENDIENTES</div>`;
+      d.facturasPendientes.forEach(fp => {
+        html += `<div class="d-flex justify-content-between"><span>• ${fp.concepto}</span><span>${fmt(fp.monto)}</span></div>`;
+      });
+    }
+
+    // 7. DETALLE DE COMANDAS CERRADAS DEL DÍA (SI ESTÁN EN MEMORIA)
+    const ventasDia = obtenerVentasCerradasDelCierre(fecha, rawFecha, caja);
+    if (ventasDia.length > 0) {
+      html += `<hr style="border-style: dashed; border-color: var(--border-color);">`;
+      html += `<div class="fw-bold mb-1">7. DETALLE DE COMANDAS (${ventasDia.length})</div>`;
+      ventasDia.forEach(v => {
+        let ref = v.referencia || v.mesa || 'Comanda';
+        let metodo = v.metodoPago || v.metodo || '';
+        let tot = v.total || v.monto || 0;
+        html += `<div class="d-flex justify-content-between fw-bold mt-1"><span>• ${ref} ${metodo ? '(' + metodo + ')' : ''}</span><span>${fmt(tot)}</span></div>`;
+        if (Array.isArray(v.items) && v.items.length > 0) {
+          v.items.forEach(it => {
+            html += `<div class="d-flex justify-content-between text-muted ps-2" style="font-size: 12px;"><span>${it.cant || 1}x ${it.nombre}</span><span>${fmt(it.subtotal || (it.precio * (it.cant || 1)))}</span></div>`;
+          });
+        }
+      });
+    }
+
+    document.getElementById('tk-cierre-contenido').innerHTML = html;
+    document.getElementById('tk-cierre-total').innerText = fmt(d.efectivoEsperado);
+    cambiarVista('ticket-cierre', 'Ticket de Cierre');
+  }
+
+  function descargarImagenTicketCierre() {
+    if (!ultimoCierreData || !ultimoCierreData.datos) return;
+    const { fecha, rawFecha, caja, datos: d } = ultimoCierreData;
+    const fmt = (n) => '$' + Number(n || 0).toLocaleString('es-CO');
+    const horaGen = new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+    const totalVentasTurno = Number(d.ventasEfectivo || 0) + Number(d.transferencia || 0);
+
+    const lineas = [
+      { tipo: 'titulo', texto: 'COMANDERO ALTAMIRA' },
+      { tipo: 'subtitulo', texto: `CIERRE DE CAJA: ${caja.toUpperCase()}` },
+      { tipo: 'centro', texto: `Fecha: ${fecha}  •  ${horaGen}` },
+      { tipo: 'sep' },
+      { tipo: 'seccion', texto: '1. INGRESOS Y VENTAS' },
+      { tipo: 'par', izq: 'Base Inicial:', der: fmt(d.baseInicial) },
+      { tipo: 'par', izq: 'Ventas Efectivo:', der: fmt(d.ventasEfectivo) },
+      { tipo: 'par', izq: 'Ventas Transferencia:', der: fmt(d.transferencia) },
+      { tipo: 'parBold', izq: 'TOTAL VENTAS TURNO:', der: fmt(totalVentasTurno) },
+      { tipo: 'sep' },
+      { tipo: 'seccion', texto: `2. GASTOS DEL TURNO (${fmt(d.gastos)})` }
+    ];
+
+    let hayGastos = false;
+    (d.listaGastosBase || []).forEach(g => { hayGastos = true; lineas.push({ tipo: 'par', izq: `[Base] ${g.concepto}`, der: `-${fmt(g.monto)}` }); });
+    (d.listaGastosVentas || []).forEach(g => { hayGastos = true; lineas.push({ tipo: 'par', izq: `[Ventas] ${g.concepto}`, der: `-${fmt(g.monto)}` }); });
+    if (!hayGastos) lineas.push({ tipo: 'texto', texto: 'Sin gastos registrados.' });
+
+    lineas.push({ tipo: 'sep' });
+    lineas.push({ tipo: 'seccion', texto: `3. CONSIGNADO CAJA FUERTE (${fmt(d.consignadoCF)})` });
+    if (d.listaConsignaciones?.length > 0) {
+      d.listaConsignaciones.forEach(c => lineas.push({ tipo: 'par', izq: c.concepto, der: `-${fmt(c.monto)}` }));
+    } else {
+      lineas.push({ tipo: 'texto', texto: 'Sin consignaciones hoy.' });
+    }
+
+    lineas.push({ tipo: 'sep' });
+    lineas.push({ tipo: 'seccion', texto: '4. CUADRE EFECTIVO EN CAJA' });
+    lineas.push({ tipo: 'par', izq: 'Base Restante:', der: fmt(d.baseRestante) });
+    lineas.push({ tipo: 'par', izq: 'Ventas Efectivo Restante:', der: fmt(d.ventasRestante) });
+
+    lineas.push({ tipo: 'sep' });
+    lineas.push({ tipo: 'seccion', texto: '5. CAJA FUERTE Y BANCO' });
+    lineas.push({ tipo: 'par', izq: 'Saldo Caja Fuerte:', der: fmt(d.saldoCajaFuerteActual) });
+    (d.listaGastosCajaFuerte || []).forEach(g => lineas.push({ tipo: 'par', izq: `  • ${g.concepto}`, der: `-${fmt(g.monto)}` }));
+    lineas.push({ tipo: 'par', izq: 'Saldo Banco:', der: fmt(d.saldoBancoActual) });
+    (d.listaGastosBanco || []).forEach(g => lineas.push({ tipo: 'par', izq: `  • ${g.concepto}`, der: `-${fmt(g.monto)}` }));
+
+    if (d.facturasPendientes?.length > 0) {
+      lineas.push({ tipo: 'sep' });
+      lineas.push({ tipo: 'seccion', texto: '6. FACTURAS PENDIENTES' });
+      d.facturasPendientes.forEach(fp => lineas.push({ tipo: 'par', izq: fp.concepto, der: fmt(fp.monto) }));
+    }
+
+    const ventasDia = obtenerVentasCerradasDelCierre(fecha, rawFecha, caja);
+    if (ventasDia.length > 0) {
+      lineas.push({ tipo: 'sep' });
+      lineas.push({ tipo: 'seccion', texto: `7. DETALLE DE COMANDAS (${ventasDia.length})` });
+      ventasDia.forEach(v => {
+        let ref = v.referencia || v.mesa || 'Comanda';
+        let metodo = v.metodoPago || v.metodo || '';
+        lineas.push({ tipo: 'parBold', izq: `${ref} ${metodo ? '(' + metodo + ')' : ''}`, der: fmt(v.total || v.monto || 0) });
+        if (Array.isArray(v.items)) {
+          v.items.forEach(it => {
+            lineas.push({ tipo: 'par', izq: `  ${it.cant || 1}x ${it.nombre}`, der: fmt(it.subtotal || (it.precio * (it.cant || 1))) });
+          });
+        }
+      });
+    }
+
+    lineas.push({ tipo: 'sep' });
+    lineas.push({ tipo: 'totalLabel', texto: 'EFECTIVO FÍSICO EN CAJA:' });
+    lineas.push({ tipo: 'totalValor', texto: fmt(d.efectivoEsperado) });
+
+    const ancho = 540;
+    const margen = 28;
+    let alto = 50;
+    lineas.forEach(l => {
+      if (l.tipo === 'titulo') alto += 34;
+      else if (l.tipo === 'subtitulo') alto += 28;
+      else if (l.tipo === 'sep') alto += 22;
+      else if (l.tipo === 'totalValor') alto += 42;
+      else alto += 24;
+    });
+    alto += 30;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = ancho;
+    canvas.height = alto;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, ancho, alto);
+    ctx.fillStyle = '#111111';
+
+    let y = 42;
+    lineas.forEach(l => {
+      if (l.tipo === 'titulo') {
+        ctx.font = 'bold 22px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(l.texto, ancho / 2, y);
+        y += 34;
+      } else if (l.tipo === 'subtitulo') {
+        ctx.font = 'bold 17px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(l.texto, ancho / 2, y);
+        y += 28;
+      } else if (l.tipo === 'centro') {
+        ctx.font = '14px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(l.texto, ancho / 2, y);
+        y += 24;
+      } else if (l.tipo === 'sep') {
+        ctx.strokeStyle = '#888888';
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(margen, y - 6);
+        ctx.lineTo(ancho - margen, y - 6);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        y += 22;
+      } else if (l.tipo === 'seccion') {
+        ctx.font = 'bold 15px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(l.texto, margen, y);
+        y += 24;
+      } else if (l.tipo === 'texto') {
+        ctx.font = '14px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(l.texto, margen, y);
+        y += 24;
+      } else if (l.tipo === 'par' || l.tipo === 'parBold') {
+        ctx.font = (l.tipo === 'parBold' ? 'bold ' : '') + '14px monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText(l.der, ancho - margen, y);
+        const anchoDer = ctx.measureText(l.der).width + 14;
+        const maxAnchoIzq = ancho - (margen * 2) - anchoDer;
+        let textoIzq = String(l.izq || '');
+        while (ctx.measureText(textoIzq).width > maxAnchoIzq && textoIzq.length > 3) {
+          textoIzq = textoIzq.slice(0, -1);
+        }
+        ctx.textAlign = 'left';
+        ctx.fillText(textoIzq, margen, y);
+        y += 24;
+      } else if (l.tipo === 'totalLabel') {
+        ctx.font = 'bold 15px monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText(l.texto, ancho - margen, y);
+        y += 26;
+      } else if (l.tipo === 'totalValor') {
+        ctx.font = 'bold 28px monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText(l.texto, ancho - margen, y);
+        y += 42;
+      }
+    });
+
+    const enlace = document.createElement('a');
+    enlace.download = `Cierre_${caja.replace(/\s+/g, '_')}_${rawFecha}.png`;
+    enlace.href = canvas.toDataURL('image/png');
+    enlace.click();
   }
   (function iniciarVigilanciaCaja() {
     const vistaCajaEl = document.getElementById('vista-caja');
