@@ -2356,17 +2356,15 @@ let mesasExpandidasUI = {};
     llamarBackend('marcarEntregaDetalle', { id: idActual, nombre: nombreProd, deltaEntregado: delta });
   }
 
-  function ejecutarMovimientoLocal(nombre, precio, cantidad) {
-    let subtotal = precio * cantidad;
-    let existente = cacheDetalles[idActual].find(i => i.nombre === nombre);
-    let marcaTiempo = (cantidad > 0) ? Date.now() : 0;
-
-    if (existente) {
+  if (existente) {
       let estabanTodosEntregados = (Number(existente.entregados || 0) >= existente.cant);
       existente.cant += cantidad;
       existente.subtotal += subtotal;
-      if (cantidad > 0 && (estabanTodosEntregados || !existente.horaMs || existente.horaMs <= 0)) {
-        existente.horaMs = marcaTiempo;
+      if (cantidad > 0 && marcaTiempo > 0) {
+        existente.horaUltimaMs = marcaTiempo;
+        if (estabanTodosEntregados || !existente.horaMs || existente.horaMs <= 0) {
+          existente.horaMs = marcaTiempo;
+        }
       }
       if (existente.cant > 0) {
         existente.entregados = Math.min(existente.cant, Number(existente.entregados || 0));
@@ -2378,6 +2376,7 @@ let mesasExpandidasUI = {};
         precio: precio,
         subtotal: subtotal,
         horaMs: marcaTiempo,
+        horaUltimaMs: marcaTiempo,
         entregados: 0
       });
     }
@@ -2414,7 +2413,7 @@ let mesasExpandidasUI = {};
       let entregadosNum = Math.min(i.cant, Number(i.entregados || 0));
       let pendientesNum = Math.max(0, i.cant - entregadosNum);
       let ent = llevaSeg && (pendientesNum === 0);
-      let horaTxt = formatearHoraCorta(i.horaMs);
+      let horaTxt = formatearHoraCorta(i.horaUltimaMs || i.horaMs);
       let infoEntregaTxt = '';
       let btnEstado = '';
 
