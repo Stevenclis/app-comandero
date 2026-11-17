@@ -1278,15 +1278,24 @@ const KEY_COLA_OFFLINE = 'altamira_cola_envios_v1';
   }
 
   async function enviarPeticionDirecta(payload) {
-    let res = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
-    });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    let json = await res.json();
-    hayInternet = true;
-    return json;
+    const controlador = new AbortController();
+    const temporizador = setTimeout(() => controlador.abort(), 15000);
+    try {
+      let res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload),
+        signal: controlador.signal
+      });
+      clearTimeout(temporizador);
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      let json = await res.json();
+      hayInternet = true;
+      return json;
+    } catch (e) {
+      clearTimeout(temporizador);
+      throw e;
+    }
   }
 
   async function procesarColaEnvios() {
@@ -1300,12 +1309,26 @@ const KEY_COLA_OFFLINE = 'altamira_cola_envios_v1';
     while (colaEnvios.length > 0) {
       let item = colaEnvios[0];
       try {
-        await enviarPeticionDirecta(item.payload);
+        let resp = await enviarPeticionDirecta(item.payload);
+        if (resp && resp.error) {
+          throw new Error(resp.error);
+        }
         colaEnvios.shift();
         guardarColaEnMemoria();
       } catch(e) {
-        hayInternet = false;
-        break;
+        if (!navigator.onLine) {
+          hayInternet = false;
+          break;
+        }
+        item.intentos = (item.intentos || 0) + 1;
+        if (item.intentos >= 3) {
+          console.warn("Envío descartado tras 3 fallos:", item);
+          colaEnvios.shift();
+          guardarColaEnMemoria();
+        } else {
+          guardarColaEnMemoria();
+          break;
+        }
       }
     }
 
